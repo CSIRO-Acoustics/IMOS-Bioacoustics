@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>Underway</title>
+  </head>
+
+  <body>
+<img align=right src="images/csiro.png">
+    <h1>Underway</h1>
+
+Underway data is data logged by the ship's system while the vessel is underway.<br>
+<br>
+Data is logged from the following instruments:
+<table>
+<tr><td>GPS</td><td>The Geographic Positioning System provides information on the location of the vessel</td></tr>
+<tr><td></td><td><table>
+	      <tr><td>mode</td><td></td></tr>
+	      <tr><td>pdop</td><td></td></tr>
+	      <tr><td>speed_og</td><td>Speed Over Ground - the speed of the vessel relative to the earth,
+		    as calculated by the GPS</td></tr>
+	      <tr><td>speed_ow</td><td>Speed Over Water</td></tr>
+	      <tr><td>course_og</td><td>Course Over Ground - the direction the vessel has moved, 
+		    relative to the earth.</td></tr>
+	      <tr><td>heading</td><td>The direction the ship is pointing</td></tr>
+</table></td></tr>
+<tr><td>EK</td><td>The Simrad EK500 echosounder</td></tr>
+<tr><td></td><td><table>
+	      <tr><td>sea_depth</td><td>The depth of the sea floor, according to the current settings of the echosounder.
+		  The accuracy of this measure will depend on the settings and whether they match the current environment. 
+		  In particular this measure is sensitive to the speed of sound through water,
+		  which varies with water temperature and conductivity.</td></tr>
+</table></td></tr>
+<tr><td>Data Taker</td><td>The data taker connected to the meteorological sensors</td></tr>
+<tr><td></td><td><table>
+	      <tr><td>air_temp</td><td>Air temperature</td></tr>
+	      <tr><td>water_temp</td><td>Sea water temperature</td></tr>
+	      <tr><td>wind_speed</td><td>Wind speed (knots?)</td></tr>
+	      <tr><td>wind_dir</td><td>Wind direction in degrees true</td></tr>
+	      <tr><td>light</td><td></td></tr>
+</table></td></tr>
+<tr><td>Thermosalinograph</td><td>Water characteristics as measured at the thermosalinograph</td></tr>
+<tr><td></td><td><table>
+	      <tr><td>salinity</td><td></td></tr>
+	      <tr><td>water_temp</td><td>Sea water temperature at the thermosalinograph.
+		The water temperature is likely to have been affected by travel through the ship to the instrument.</td></tr>
+	      <tr><td>conductivity</td><td></td></tr>
+	      <tr><td>fluorescence</td><td></td></tr>
+</table></td></tr>
+</table>
+
+<hr>
+<h2>Loading</h2>
+
+Data can be loaded for only one area at a time, although more
+than one attribute of the dataset may be displayed (using different symbols
+for each  attribute). Once a dataset is loaded the geographic bounds and
+time range options are disabled and ignored. Removing all loaded datasets
+will enable new bounds to  be entered.<br>
+<br>
+You may restrict the data loaded by either geographic bounds or time range, or both. 
+At least one restriction should be applied as this is a very large data set.
+
+<h3>Attribute</h3>
+Which data attribute you wish to display. This is the attribute to be used for colouring the data points.
+You must select one.<br>
+<br>
+All attributes may be viewed in the data point details panel for underway data.<br>
+<br>
+More than one data attribute may be displayed by selecting a different attribute and symbol 
+(and optionally colour table) and loading it. 
+Each attribute and symbol must be selected one pair at a time, and the <code>Load</code> button pressed.
+Loading an additional attribute of an already loaded dataset is does not take anything like as long as 
+loading the dataset.<br>
+<br>
+Only one data set can be loaded at a time, even though multiple attributes of the dataset may be plotted.
+<h3>Symbol</h3>
+Select which symbol you would like to use to display this attribute. You must select one.
+<h3>Geographic bounds</h3>
+You may restrict the data loaded to a geographic area. 
+Fill in the bounds either by typing them in or by middle dragging the mouse to define the area.
+Double middle click of the mouse will clear the current bounds.<br>
+<br>
+Once a data set has been loaded the geographic bounds will be ignored until the data set has been removed.
+A data set can be removed either by the <code>RemoveAll</code> button or by the <code>File, Clear</code> menu option.
+
+<h3>Time range</h3>
+You may restrict the data loaded to a time range.
+Fill in the start and end times for data to load. 
+All times are in UTC (GMT).
+<h3>Colour table</h3>
+You must select a colour table to use from the predefined list.<br>
+<br>
+You may choose to apply either a linear or logarithmic scale to colour the data.
+Some data sets, such as single beam indices and echosounder depth 
+are better displayed using a log scale.<br>
+<br>
+The colour table may either range over the set of data values, "<code>Auto 
+range</code>",  of range over the minimum and maximum values you enter. You 
+can reverse the colour scale by setting the minimum value greater than the 
+maximum value.  
+
+<h3>Load</h3>
+The <code>Load</code> button will load all operations of the currently selected types 
+which fall within the region in to the display area.
+
+<h3>Cancel</h3>
+The <code>Cancel</code> button will be available between when you press the <code>Load</code> button
+and when the data is displayed. Pressing the <code>Cancel</code> button will abort the
+load.<br>
+<br>
+The data may take some time to load, especially if large or no bounds are applied. 
+While the data is loading the program may still be used as normal, 
+albeit with reduced performance as the data loading activity occurs in the background.
+
+<h3>Remove</h3>
+The <code>Remove</code> button will remove the selected attribute from the display.
+
+<h3>Remove All</h3> 
+The <code>RemoveAll</code> button will remove the current underway data set, 
+and allow a new data set to be selected.
+
+<h3>Re-colour</h3>
+The <code>Re-colour</code> button will apply the currently selected colour table and range 
+to the currently selected data set.
+<hr>
+
+<!-- Created: Thu May  8 16:42:59 EST 2003 -->
+<!-- hhmts start -->
+Last modified: Fri May  9 09:20:53 EST 2003
+<!-- hhmts end -->
+  </body>
+</html>

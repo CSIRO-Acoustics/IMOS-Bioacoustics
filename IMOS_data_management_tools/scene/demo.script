@@ -1,0 +1,36 @@
++1 tab Images
++0 load Images '/rasters/broken_bath.gif'
++0 wait
+0.2 zoom -37.925 -37.982 149.234 149.305
++0.5 load Images /rasters/broken_shade.png
+0 wait
++0.5 load Images /rasters/broken_back.gif
+0 wait
++0.5 load Images /rasters/broken_shaded_bath.png
++1 tab Operations
++0.5 load Operations '-37.923/-37.986/149.23/149.31'
++1 wait
++0 click -37.939439 149.25757
++0.2 detail Operations
++0.2 load Video '219'
++0 tab Video
++0.1 tab Sediments
++0.1 detail Operations
++0 click -37.9457 149.26677 
++0.5 load Sediments '-37.92/-37.987/149.24/149.3'
++0 detail Sediments
++0.2 click -37.9457 149.26677
++0.5 tab Inverts
++0 load Inverts '-37.923/-37.986/149.23/149.31'
++0.2 click -37.9415 149.26412
++1 detail Video
++0 wait
++1 zoom -37.938 -37.949 149.2555 149.27
++2 zoom -37.94299 -37.9431 149.2611 149.2613
++5 zoom -37.938 -37.949 149.25 149.27
++0 tab 'Frame grabs'
++0.1 load 'Frame grabs' '-37.923/-37.986/149.23/149.31'
++1 click -37.940494 149.258291
++1 click -37.942192 149.260177
++1 click -37.944247 149.262703
++1 click -37.945406 149.264001

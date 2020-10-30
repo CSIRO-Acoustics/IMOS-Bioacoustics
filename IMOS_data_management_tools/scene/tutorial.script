@@ -1,0 +1,56 @@
+1 message Tutorial "This tutorial will take you through some of\n the features of DataView\n\nTip: you can quit the tutorial at any time\nby pressing the Cancel button in any message.\nYou will be told when the tutorial finishes." images/csiro.png
+0 zoom -37.925 -37.982 149.234 149.305
++0 message Tutorial "The panel on the left hand side is used to load data sets\nto the workspace, or to edit loaded data sets.\n\nTo load a data set, first select it\'s tab.\n\nFor example to load a background image select the \"Images\" tab."
++1 tab Images
++0 load Images '/rasters/broken_bath.gif'
++1.5 message Tutorial 'Images require the filename of the image and the bounds of the image.\n\nTo make entry easier there is a list of some of the images predefined.\nYou may click on the list to fill in the filename and bounds,\nthen click the "Load" button.\n\nFor example, clicking on "broken bathymetry" then "Load" will load the following image.\n\nTip: You can click on an entry in the list, then the "Zoom" button to zoom to an area without actually loading an image.'
++0 wait
++2 message Tutorial 'If you browse the file name you will find a number of images not listed.\nWhere the name starts with the same location it uses the same bounds.\nOther images include:\n\t sun illuminated views "_shade",\n\t acoustic backscatter "_back", and\n\t shaded bathymetry "_shaded_bath".\n\nTip: select the correct bounds before loading an image.'
++0.2 load Images /rasters/broken_shade.png
+0 wait
++1 load Images /rasters/broken_back.gif
+0 wait
++1 load Images /rasters/broken_shaded_bath.png
++1 tab Operations
+0 message Tutorial 'To see where data was collected one of the primary data sets is the ship\'s operations.\n\nYou can load all types of operations or restrict them to those you select from the list.\nYou may load operations for the entire voyage or restrict them to a specific geographic area.\n\nTip: you can find details about particular datasets under the "Metadata" menu.'
++0.5 load Operations '-37.923/-37.986/149.23/149.31'
++1 wait
++0 click -37.939439 149.25757
++0.2 detail Operations
++0.1 message Tutorial 'Click on or near a symbol (in pointer mode) in the display region and you see the details for that data point\n in the "Data point details" tab on the left. The symbol for the selected point in the display region will be twice its normal size.\n\nThe operaton at -37.939 149.257 is a video transect, operation number 219.\n\nTip: click on a point then move through the different tabs on the right to see how the various data sets closest to that point compare.\nCheck the latitude and longitude as the nearest point may still be some distance away from the click.' cmr/lib/images/select.gif
++0.2 load Video '219'
++0 tab Video
++0 message Tutorial 'To load the details of a video operation select the operation number from the list,\nselect any available video clips you would like to view\nand press "Load".\n\nYou may also choose to change the colors and parameters used to display the video scores.\n\nTip:Some data sets take a while to load.\nThe following indicate that a data set is loading:\nA message in the bottom right of the main window,\nThe mouse pointer will change to a hand over the left hand panel,\nThe "Cancel" button will be active for that data set,\npressing this button will abort the current load operations for that type of data set;\nloaded data sets are not affected.'
++0.1 tab Sediments
++0.1 detail Operations
++0 click -37.9457 149.26677 
++ 0 message Tutorial 'While data sets are loading you can still explore the already loaded data sets and load new data.\n\nData on sediment samples can be loaded for a selected region.\nEnter the region and press "Load".\n\nData for the entire voyage will be loaded if the region has zero size.\n\nTip: The middle mouse button can be used to define the region.\nIn selection mode drag with the middle button to define a region\nor double click with the middle button to switch between the current window and the empty region (all data).'
++0.5 load Sediments '-37.92/-37.987/149.24/149.3'
++0 detail Sediments
++0.2 click -37.9457 149.26677
++0 message Tutorial 'Sediment samples are displayed using a pie graph showing percentage of\nsand (yellow), gravel (blue) and mud (red).\n\nTip: The "View", "Symbol size" menu allows you to change the size of loaded symbols,\nlarger symbols may be easier to see on a large display.' metadata/images/sediment.png
++0.5 tab Inverts
++0 load Inverts '-37.923/-37.986/149.23/149.31'
++0.2 click -37.9415 149.26412
++0.2 message Tutorial 'Invertebrate samples are also shown using pie graphs\nshowing the break up of the 8 functional units found in the catch.\nInvertebrate samples also show a line indicating the length and location of the dredge operation.\n\n' metadata/images/invert.png
++1 detail Video
++0 wait
++0 message Tutorial 'To play a video clip click on the play button below the screen area.\n\nThe clip may be very jerky the first time through as the data is read from CD or disk,\nit will play smoothly on the second and subsequent runs.\n\nPlease press the play button.'
++10 message Tutorial 'The location of the video clip is shown by a yellow triangle at the start,\na pink triangle at the end,\n and a box surrounding the position of the score nearest the current frame.\n\nThe scale on which a video clip covers is much smaller than the scale of most other data sets.\n\nTip: the video clip is much larger than the default display,\nyou can drag the boundary between the display area (centre)\n and the details area (right) to the left to enlarge\nthe detail area and see a larger image.'
++1 zoom -37.938 -37.949 149.2555 149.27
++2 zoom -37.94299 -37.9431 149.2611 149.2613
++15 zoom -37.938 -37.949 149.25 149.27
++0 tab 'Frame grabs'
++0.1 load 'Frame grabs' '-37.923/-37.986/149.23/149.31'
++0.1 message Tutorial 'There are some frame grabs from the video transects.\nThese show a frame of the video at the location it was taken.\n\nTip: you can click on the image in the detail area to see it in full size in a new window.' metadata/images/framegrab.png
++2 click -37.940494 149.258291
++2 click -37.942192 149.260177
++2 click -37.944247 149.262703
++2 click -37.945406 149.264001
++1 message Tutorial 'The detail panes with a pink line down the left edge can be dragged out.\nPlace the mouse on the pink line, press the button and drag to the left out of the box it is in.\nThe contents will be moved to a new window. You can arrange multiple windows to see various datasets simultaneously.\nClosing the window will return the display to the details area.'
++3 message Tutorial 'Navigation - Selection mode\n\nIn selection mode the mouse does the following:\n\nLeft click - the data points nearest the mouse are selected and displayed in the "Data point details".\n\nLeft drag - ruler - the length of the line dragged is displayed in the bottom panel.\n\n\Middle drag - draw a box to define the selection region.\n\nMiddle double click - switch selection region between no region and current display.\n\nRight click - popup menu, includes option to zoom in, zoom out and fit the display area to all loaded data.\n The popup menu is available in all modes.' cmr/lib/images/select.gif
++2 message Tutorial 'Navigation - Move mode\n\nIn move mode the mouse does the following:\n\nLeft click - make this point the center of the display.\n\nRight click - popup menu.' cmr/lib/images/pan.gif
++2 message Tutorial 'Navigation - Zoom in mode\n\nIn zoom in mode the mouse does the following:\n\nLeft click - zoom in to this point\n\nLeft drag - make this rectangle the new display region.\n\nRight click - popup menu.' cmr/lib/images/zoom_in.gif
++2 message Tutorial 'Navigation - Zoom out mode\n\nIn zoom out mode the mouse does the following:\n\nLeft click - zoom out from this point\n\nLeft drag - zoom the display to fit in this rectangle.\n\nRight click - popup menu.' cmr/lib/images/zoom_out.gif
+
++2 message 'Tutorial Complete' 'The tutorial if finished.\n\nHave fun exploring the data.' images/csiro.png

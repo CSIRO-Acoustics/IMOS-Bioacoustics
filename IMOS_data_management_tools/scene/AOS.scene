@@ -1,0 +1,46 @@
+loaders=AOS
+
+AOS.class=au.csiro.marine.echo.live.WireLoader
+AOS.Port\ Sector\ \(deg\)=5
+AOS.Starboard\ Sector\ \(deg\)=5
+AOS.Exclude\ lower\ range\ \(%)=50
+AOS.Exclude\ larger\ range\ \(%)=130	       
+AOS.Total\ depth\ error\ \(m)=2       
+AOS.Wire\:depth\ ratio=2
+AOS.Auto-adjust\ wire\:depth=0.01
+AOS.Smooth\ heading\ \(fixes)=500      
+AOS.Max\ beacon\ speed\ \(kn\)=6       
+AOS.Bathymetry\ offset\ \(m)=0
+AOS.Winch\ \(m)=0
+#AOS.Current\ speed\ (m/s)=0
+#AOS.Current\ direction\ (deg)=
+AOS.minimum_wire_depth=false
+
+AOS.path=sthelen.grd
+AOS.echoview.file=/data/kei037/sthelen/platform_depth.csv
+AOS.echoview.method=file
+AOS.echoview.sync=true
+AOS.echoview.delay=30
+AOS.echoview_below.file=/data/kei037/sthelen/depth below AOS.csv
+AOS.echoview_below.method=file
+AOS.echoview_below.sync=true
+
+AOS.gps.shiptrack.show=true
+AOS.midpoints.show=false
+AOS.layback.show=true
+AOS.layback.colour=FF4488
+AOS.layback.decimate=false
+
+AOS.gps.shiptrack.log=false
+AOS.sonardyne.shiptrack.log=false
+AOS.sonardyne.beacontrack.log=false
+AOS.tow.log=false
+AOS.tow2.log=false
+AOS.echoview.log=false
+AOS.echoview2.log=false
+AOS.track.log=false
+AOS.midpoints.log=false
+AOS.layback.log=false
+
+au.csiro.marine.dataview.loaders.RasterLoader.datasets=sthelen.grd
+au.csiro.marine.dataview.loaders.RasterLoader.sthelen.grd.file=sthelen.grd

@@ -1,0 +1,48 @@
+"Sample Id.",,"Latitude","Longitude",,"Operation","Transect=Site;%Gravel=" %Gravel >2mm";%Sand="%Sand 63-2000um";%Mud="%Mud <63um";%CaCO3="% CaCO3";Depth="Pressure (Kpa)"","Comment"
+"SS200705_9_Barrow_L1",,-21.0295,114.8835,,9,"Transect=Barrow L1;%Gravel=10.70;%Sand=40.48;%Mud=48.82;%CaCO3=82.9;Depth=95.5",
+"SS200705_20_Onslow_L19",,-20.2025,115.137,,20,"Transect=Onslow L19;%Gravel=0.04;%Sand=66.73;%Mud=33.23;%CaCO3=85.7;Depth=98.7","Good sample of thick sticky sediment"
+"SS200705_24_Dampier_L20",,-19.79,115.476,,24,"Transect=Dampier L20;%Gravel=13.57;%Sand=84.91;%Mud=1.53;%CaCO3=94.8;Depth=109.2","grab 102 m, good sample of muddy sand"
+"SS200705_26_Dampier_L20",,-19.7283,115.3501,,26,"Transect=Dampier L20;%Gravel=0.00;%Sand=28.44;%Mud=71.56;%CaCO3=83.9;Depth=96.6","grab in 400 m, good sample of mud"
+"SS200705_31_Dampier_L20",,-19.7511,115.3672,,31,"Transect=Dampier L20;%Gravel=0.00;%Sand=84.29;%Mud=15.71;%CaCO3=92.0;Depth=106.0",
+"SS200705_33_Dampier_L20",,-19.7171,115.3232,,33,"Transect=Dampier L20;%Gravel=0.05;%Sand=5.23;%Mud=94.72;%CaCO3=72.6;Depth=83.6",
+"SS200705_39_Karratha_L21",,-19.386,117.1091,,39,"Transect=Karratha L21;%Gravel=6.85;%Sand=68.15;%Mud=25.00;%CaCO3=90.4;Depth=104.1",
+"SS200705_41_Karratha_L21",,-18.7749,116.9167,,41,"Transect=Karratha L21;%Gravel=0.04;%Sand=21.97;%Mud=77.99;%CaCO3=84.4;Depth=97.2",
+"SS200705_47_Hedland_L22",,-19.1377,117.77,,47,"Transect=Hedland L22;%Gravel=3.86;%Sand=73.35;%Mud=22.79;%CaCO3=91.4;Depth=105.3",
+"SS200705_51_Hedland_L22",,-18.571,117.4608,,51,"Transect=Hedland L22;%Gravel=0.24;%Sand=12.29;%Mud=87.47;%CaCO3=82.9;Depth=95.5",
+"SS200705_71_Mermaid_L24",,-16.6349,119.1481,,71,"Transect=Mermaid L24;%Gravel=0.00;%Sand=10.26;%Mud=89.74;%CaCO3=69.9;Depth=80.5","good mud sample"
+"SS200705_73_Mermaid_L24",,-16.732,119.2568,,73,"Transect=Mermaid L24;%Gravel=0.00;%Sand=23.16;%Mud=76.84;%CaCO3=75.5;Depth=87.0","1st sample at 700 m, good sample of mud"
+"SS200705_84_Imperieuse_L23",,-18.429,120.0985,,84,"Transect=Imperieuse L23;%Gravel=4.78;%Sand=81.19;%Mud=14.03;%CaCO3=94.4;Depth=108.7",
+"SS200705_88_Mermaid_L24",,-17.761,120.71,,88,"Transect=Mermaid L24;%Gravel=0.09;%Sand=96.67;%Mud=3.24;%CaCO3=83.7;Depth=96.4","small but adequete sample of sandy sediment"
+"SS200705_94_Mermaid_L24",,-17.4408,120.4394,,94,"Transect=Mermaid L24;%Gravel=35.87;%Sand=57.04;%Mud=7.10;%CaCO3=92.3;Depth=106.3",
+"SS200705_118_Broome_L25",,-16.7473,121.032,,118,"Transect=Broome L25;%Gravel=8.24;%Sand=91.68;%Mud=0.08;%CaCO3=96.4;Depth=111.0","good sample of coarse sand"
+"SS200705_119_Broome_L25",,-16.7489,121.0325,,119,"Transect=Broome L25;%Gravel=3.35;%Sand=96.57;%Mud=0.08;%CaCO3=95.7;Depth=110.3","good sample of coarse sand"
+"SS200705_121_Broome_L25",,-16.6174,120.5673,,121,"Transect=Broome L25;%Gravel=0.76;%Sand=51.34;%Mud=47.90;%CaCO3=85.2;Depth=98.1","Good sample of ooze"
+"SS200705_122_Broome_L25",,-16.6181,120.5637,,122,"Transect=Broome L25;%Gravel=0.93;%Sand=42.93;%Mud=56.14;%CaCO3=86.4;Depth=99.5","Good sample of ooze"
+"SS200705_127_Lacepede_L26",,-15.7895,121.0603,,127,"Transect=Lacepede L26;%Gravel=2.75;%Sand=96.77;%Mud=0.48;%CaCO3=94.5;Depth=108.9","Good grab of coarse sediments"
+"SS200705_128_Lacepede_L26",,-15.7889,121.0597,,128,"Transect=Lacepede L26;%Gravel=14.72;%Sand=84.79;%Mud=0.49;%CaCO3=94.9;Depth=109.3","Good grab of coarse sand"
+"SS200705_131_Lacepede_L26",,-15.5772,120.8293,,131,"Transect=Lacepede L26;%Gravel=0.59;%Sand=93.65;%Mud=5.76;%CaCO3=88.0;Depth=101.4","small grab of fine sand"
+"SS200705_132_Lacepede_L26",,-15.5775,120.8294,,132,"Transect=Lacepede L26;%Gravel=0.77;%Sand=94.82;%Mud=4.41;%CaCO3=87.6;Depth=100.9","small grab of fine sand"
+"SS200705_133_Lacepede_L26",,-15.5914,120.8186,,133,"Transect=Lacepede L26;%Gravel=0.23;%Sand=95.78;%Mud=3.99;%CaCO3=88.4;Depth=101.8","small grab of fine sand"
+"SS200705_136_Leveque_L27",,-14.9716,121.6508,,136,"Transect=Leveque L27;%Gravel=35.30;%Sand=53.35;%Mud=11.35;%CaCO3=84.7;Depth=97.6","~240 m on slightly higher backscatter, good sample shelly/gravelly mud"
+"SS200705_138_Leveque_L27",,-15.0776,121.7809,,138,"Transect=Leveque L27;%Gravel=1.16;%Sand=97.41;%Mud=1.42;%CaCO3=78.9;Depth=90.9","good sample of sandy sediment with shell hash"
+"SS200705_145_Leveque_L27",,-14.8451,121.4375,,145,"Transect=Leveque L27;%Gravel=0.00;%Sand=2.01;%Mud=97.99;%CaCO3=64.7;Depth=74.5","good grab of fine grey ooze"
+"SS200705_146_Leveque_L27",,-14.8447,121.4386,,146,"Transect=Leveque L27;%Gravel=0.00;%Sand=2.37;%Mud=97.63;%CaCO3=65.3;Depth=75.2","good grab of fine grey ooze"
+"SS200705_148_Leveque_L27",,-14.5954,121.3607,,148,"Transect=Leveque L27;%Gravel=0.08;%Sand=20.65;%Mud=79.27;%CaCO3=68.6;Depth=79.0","good grab of fine ooze"
+"SS200705_149_Leveque_L27",,-14.5965,121.3615,,149,"Transect=Leveque L27;%Gravel=0.22;%Sand=20.23;%Mud=79.55;%CaCO3=68.8;Depth=79.2","good grab of fine ooze"
+"SS200705_150_Leveque_L27",,-14.5744,121.2415,,150,"Transect=Leveque L27;%Gravel=0.08;%Sand=40.13;%Mud=59.79;%CaCO3=70.6;Depth=81.3","good grab of fine ooze with chunky bits"
+"SS200705_151_Leveque_L27",,-14.5744,121.2415,,151,"Transect=Leveque L27;%Gravel=0.00;%Sand=43.46;%Mud=56.54;%CaCO3=72.0;Depth=82.9","good grab of ooze"
+"SS200705_157_Adele_L28",,-14.0624,122.6105,,157,"Transect=Adele L28;%Gravel=1.05;%Sand=91.04;%Mud=7.90;%CaCO3=87.9;Depth=101.3","good grab of fine to medium sand"
+"SS200705_158_Adele_L28",,-14.0618,122.6112,,158,"Transect=Adele L28;%Gravel=0.89;%Sand=92.60;%Mud=6.50;%CaCO3=86.4;Depth=99.5","good grab of fine to medium sand"
+"SS200705_163_Adele_L28",,-14.5592,122.9071,,163,"Transect=Adele L28;%Gravel=20.38;%Sand=78.16;%Mud=1.47;%CaCO3=92.0;Depth=106.0","grab in 100 m, good sample of gritty sand"
+"SS200705_164_Adele_L28",,-14.5585,122.9073,,164,"Transect=Adele L28;%Gravel=22.91;%Sand=76.61;%Mud=0.48;%CaCO3=94.2;Depth=108.5","2nd grab 100 m, good sample as previous"
+"SS200705_173_Kulumburu_L29",,-13.4701,124.0188,,173,"Transect=Kulumburu L29;%Gravel=13.21;%Sand=86.23;%Mud=0.56;%CaCO3=97.7;Depth=112.6","good grab of fine yellow sand"
+"SS200705_174_Kulumburu_L29",,-13.4709,124.0192,,174,"Transect=Kulumburu L29;%Gravel=6.94;%Sand=91.10;%Mud=1.96;%CaCO3=97.1;Depth=111.9","good grab of fine yellow sand"
+"SS200705_177_Kulumburu_L29",,-13.233,123.3726,,177,"Transect=Kulumburu L29;%Gravel=0.37;%Sand=91.53;%Mud=8.10;%CaCO3=86.8;Depth=100.0","Good grab of fine muddy sand"
+"SS200705_178_Kulumburu_L29",,-13.2333,123.3714,,178,"Transect=Kulumburu L29;%Gravel=0.07;%Sand=95.07;%Mud=4.86;%CaCO3=87.6;Depth=100.9","Good grab of fine muddy sand"
+"SS200705_183_Ashmore_L30",,-12.4338,123.6009,,183,"Transect=Ashmore L30;%Gravel=14.00;%Sand=84.44;%Mud=1.56;%CaCO3=96.7;Depth=111.4","good grab on coarse sand with shell hash"
+"SS200705_184_Ashmore_L30",,-12.4341,123.6014,,184,"Transect=Ashmore L30;%Gravel=3.46;%Sand=94.73;%Mud=1.81;%CaCO3=95.8;Depth=110.4","good grab on coarse sand with shell hash"
+"SS200705_185_Ashmore_L30",,-12.434,123.6012,,185,"Transect=Ashmore L30;%Gravel=8.31;%Sand=90.21;%Mud=1.48;%CaCO3=97.9;Depth=112.8",
+"SS200705_186_Ashmore_L30",,-12.4343,123.6013,,186,"Transect=Ashmore L30;%Gravel=13.97;%Sand=85.05;%Mud=0.98;%CaCO3=97.1;Depth=111.9",
+"SS200705_187_Ashmore_L30",,-12.4339,123.6013,,187,"Transect=Ashmore L30;%Gravel=11.39;%Sand=87.35;%Mud=1.26;%CaCO3=95.7;Depth=110.3",
+"SS200705_190_Ashmore_L30",,-12.5154,123.4193,,190,"Transect=Ashmore L30;%Gravel=0.71;%Sand=42.15;%Mud=57.14;%CaCO3=87.2;Depth=100.5","good grab of muddy fine sand"
+"SS200705_191_Ashmore_L30",,-12.5156,123.419,,191,"Transect=Ashmore L30;%Gravel=0.30;%Sand=39.44;%Mud=60.26;%CaCO3=86.2;Depth=99.3","good grab of muddy fine sand"

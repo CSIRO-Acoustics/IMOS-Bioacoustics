@@ -1,0 +1,43 @@
+#DataView DataView scene
+#Wed Apr 01 02:49:49 GMT 2015
+au.csiro.marine.dataview.loaders.DatabaseLoader.queries=base,afma_fisheries,afma_species,afma_trawls
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbd2=true
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbd1=true
+au.csiro.marine.dataview.loaders.AnnotationLoader.port=11073
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.portn=false
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbd2colour=ff8080
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbd1colour=ff1010
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbdscale=0.0
+region.origin.y=-5275291.511344325
+region.origin.x=-293597.6616017518
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.file=T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.west=147.356
+region.justification=5
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.east=147.3640122447
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbdncolour=ffc4c4
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.base=select * from
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.source=file
+region.scalefactor=1638.011384553933
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.cruise=
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.stbdn=false
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_trawls=select * from OPERATION_CSIRO 
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_fisheries=SELECT AFMA.INDEX1KM_15_SDO.LONGITUDE, AFMA.INDEX1KM_15_SDO.LATITUDE, \nAFMA.S152007.* \nFROM AFMA.INDEX1KM_15_SDO, AFMA.S152007 \nWHERE (AFMA.INDEX1KM_15_SDO.INDEX_ID \= AFMA.S152007.INDEX_ID)
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.resolution=60
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_species=SELECT AFMA.INDEX1KM_15_SDO.LONGITUDE, AFMA.INDEX1KM_15_SDO.LATITUDE, \nAFMA.S15199637264002.* \nFROM AFMA.INDEX1KM_15_SDO, AFMA.S15199637264002 \nWHERE (AFMA.INDEX1KM_15_SDO.INDEX_ID \= AFMA.S15199637264002.INDEX_ID)
+divider.location=1864
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.north=-42.947
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.port2=true
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.port1=true
+left.divider.location=517
+load.pane=Left
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.trackcolour=0
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.bounds.use=true
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.portscale=0.0
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.track=true
+au.csiro.marine.dataview.loaders.RasterLoader.datasets=T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.port2colour=80ff80
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.port1colour=10ff10
+au.csiro.marine.echo.visualise.EMSurveyLoader.datasets=0009_20141215_225126_bluefin.all
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.path=U\:\\EM2040\\mo2014_v02\\raw_em2040c\\0009_20141215_225126_bluefin.all
+au.csiro.marine.dataview.loaders.RasterLoader.T\:\\CCS\\analysis\\2040\\tafi\\bathymetry_x1m_147.356_147.364_-42.953_-42.947_bathy_back.tif.south=-42.953009003000005
+au.csiro.marine.echo.visualise.EMSurveyLoader.0009_20141215_225126_bluefin.all.portncolour=c4ffc4

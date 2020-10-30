@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>Video</title>
+  </head>
+
+  <body>
+<img align=right src="images/csiro.png" alt="csiro logo">
+    <h1>Video</h1>
+	<h2>Summary</h2>
+	Video operations occur where a video camera is used to video images.
+	This is normally done by a video camera lowered from the ship and dragged just above the surface of the bottom.<br>
+	<br>
+	The video data is analysed and each second of the video is given a score for each of the following characteristics:
+	<ul><li>Substratum </li>
+	<li>Geomorphology</li>
+	<li>Fauna</li>
+	<li>Abundance</li>
+	</ul>
+	These scores can be plotted at the position of the camera.<br>
+	<br>
+	For some operations a short video clip of part of the transect is available (eg operations 219 and 220)
+	To load the video clip you must click on the video clip as well as the operation.
+	<h2>Metadata</h2>
+	The video operations are those ship's <a href="Operations.html">operations</a> which involve
+	towing the video camera. Each operation is given a name indicating the region in which the
+	operation was performed.
+	<br><br>
+	Score positioning data is smoothed data based on the ship's GPS position and the SonarDyne
+	positioning beacon, which gives an offset from the ship to the camera assembly.
+	The jitter in the SonarDyne positioning is in the order of 10m which is significant
+	compared to distances between positions, so smoothly is applied to give a sensible result.
+	<br><br>
+	Scores are determined manually by the scorer viewing the video and entering a new score whenever
+	a change occurs. The scores are to some extend subjective as there are rarely
+	clear boundaries between similar areas.
+
+<hr>
+<h2>Loading</h2>
+
+<h3>Operations</h3>
+The topmost box lists video operations for which scores are available. You must select at least one operation.
+
+<h3>Video clips</h3>
+The second box displays a list of available video clips for the selected operation.
+This box will be empty there is not a video clip available for the selected operation (most cases)
+or if more than one operation is selected.<br>
+<br>
+Select a clip if you want it to be loaded.
+Clips not selected will not be loaded.
+<h3>Colour Table</h3>
+You must select one colour table to use in colouring the scores,
+if you wish to colour by any one of the scores.<br>
+<br>
+The colour table is ignored if you use one of the colour mix options.
+<h3>Scores</h3>
+You must select one score, or combination of scores to use to colour the data points.
+The colour table above will colour the scores, if you select a single score.
+The colour table will be ignored and a colour made by combining proportions of
+red, green and blue, according to substratum, geomorphology and fauna,
+will be used if you select a mix. The abundance score will affect the size of the point displayed.
+
+<h3>Load</h3>
+The <code>Load</code> button will load the selected video operation and display its scored points
+in the display area.
+<br><br>
+If a video clip is selected it will be loaded into the display panels on the left
+and square showing the score nearest the current frame drawn in the display area, along with
+a yellow triangle marking the start of the clip and a pink triangle marking the end of the clip.
+Clips are normally quite small in size, so it may be necessary to zoom in to separate the start and end marks.
+<br><br>
+Loading may take some time, depending on your computer.
+The <code>Cancel</code> button will be available while loading is still in progress.
+Please wait until the <code>Cancel</code> button is greyed out.
+
+<h3>Cancel</h3>
+The <code>Cancel</code> button will be available between when you press the <code>Load</code> button
+and when the loading completes. Pressing the <code>Cancel</code> button will abort the
+load, but will not remove any already loaded data.
+
+<h3>Remove</h3>
+The <code>Remove</code> button will remove video operations you currently have selected in the first box.
+
+<h3>Remove All</h3> 
+The <code>RemoveAll</code> button will remove all video operations from the display.
+<hr>
+<h3>Re-colour</h3>
+The <code>Re-colour</code> button will colour the selected video operations with the currently selected
+colour table and score. You can easily compare distributions of component scores by recolour the already
+loaded data. Re-colouring takes very little time compared to loading a data set.
+<hr>
+<h2>Data Files</h2>
+The video operations, scores and video clip data are held in tables in the videodb database,
+db/video/videodb.script.
+The data itself is held in comma separated files, operations.csv, video_scores.csv and video_clips.csv.
+Descriptions of the table structure are in videodb.script.
+<hr>
+Last Modified: Wed 4 Mar 2004 16:30
+  </body>
+</html>

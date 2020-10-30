@@ -1,0 +1,65 @@
+loaders=Operations,Underway,Video,SEF video,Inverts,Photos,Frame grabs,Sediments,Training sites,Images,Surveys,Layers,Indices,Shapes,Swaths,ES60,Database,ADCP,CTD,Rasters
+
+connections=/SS200001/ss200001.db
+
+Operations.class=au.csiro.marine.echo.visualise.OperationLoader
+Operations.connection=operations
+
+Underway.class=au.csiro.marine.echo.visualise.UnderwayLoader
+Underway.connection=underway
+
+Video.class=au.csiro.marine.echo.visualise.VideoLoader
+Video.connection=video
+
+SEF\ video.class=au.csiro.marine.echo.visualise.VideoLoader
+SEF\ video.connection=sef_video
+
+Inverts.class=au.csiro.marine.echo.visualise.BioLoader
+Inverts.connection=inverts
+
+Photos.class=au.csiro.marine.echo.visualise.PhotoLoader
+Photos.connection=photo
+Photos.tooltop=still photographs
+
+Frame\ grabs.class=au.csiro.marine.echo.visualise.PhotoLoader
+Frame\ grabs.connection=photo
+Frame\ grabs.table=framegrabs
+Frame\ grabs.symbol=film
+Frame\ grabs.colour=ff00ff
+Frame\ grabs.tooltip=video frame grabs
+
+Sediments.class=au.csiro.marine.echo.visualise.SedimentLoader
+Sediments.connection=photo
+Sediments.table=sediments
+Sediments.symbol=grab
+Sediments.colour=ffc800
+Sediments.tooltip=sediment analyses
+
+Training\ sites.class=au.csiro.marine.echo.visualise.PhotoLoader
+Training\ sites.connection=photo
+Training\ sites.table=sites
+Training\ sites.symbol=T
+Training\ sites.colour=00ff00
+Training\ sites.tooltip=trainging site centres
+
+Images.class=au.csiro.marine.echo.visualise.ImageLoader
+Images.connection=background
+
+Surveys.class=au.csiro.marine.echo.visualise.SurveyLoader
+Surveys.connection=ESMS
+
+Layers.class=au.csiro.marine.echo.visualise.LayerLoader
+Layers.connection=ERMS
+Layers.esms=ESMS
+
+Indices.class=au.csiro.marine.echo.visualise.IndicesLoader
+Indices.connection=ERMS
+Indices.esms=ESMS
+
+Shapes.class=au.csiro.marine.echo.visualise.ShapeLoader
+Swaths.class=au.csiro.marine.echo.visualise.SwathInfoLoader
+ES60.class=au.csiro.marine.echo.visualise.ES60SurveyLoader
+Database.class=au.csiro.marine.echo.visualise.DatabaseLoader
+ADCP.class=au.csiro.marine.echo.visualise.AdcpLoader
+CTD.class=au.csiro.marine.echo.visualise.CtdLoader
+Rasters.class=au.csiro.marine.echo.visualise.RasterLoader

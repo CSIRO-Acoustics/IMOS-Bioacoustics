@@ -1,0 +1,99 @@
+#DataView DataView scene
+#Fri Nov 08 03:39:00 GMT 2013
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.server=http\://c000486-hf\:8080/geoserver/wms?SERVICE\=WMS&
+divider.location=1615
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.format=image/png
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.server=http\://www.marine.csiro.au/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.west=108.998872
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.colour=ff
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.title=Australian EEZ
+au.csiro.marine.dataview.loaders.AnnotationLoader.port=11073
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.start=1383711969295
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.symbol="Southern Surveyor EM300 coverage"
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.comments=\ 
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.srs=EPSG\:4326
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.delay=500
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.srs=EPSG\:4326
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.name=Southern Surveyor EM300 coverage
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.points=2
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.name=geomorphology\:EEZ
+region.origin.y=-3508009.790981506
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.name=nat_map\:bathy_pyr
+region.origin.x=-1621530.8531037425
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.lon.1=112.37417637572803
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.lon.0=112.37417537572803
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.srs=EPSG\:4326
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.colour=ff
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.name=20131106_042639
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.title=Australian EEZ limit
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.source=wms
+au.csiro.marine.dataview.loaders.ShapeLoader.datasets=commonwealth_marine_reserves_network_july2013.shp
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.symbolsize=30.0
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.name=swath\:aus_eez_limit
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.info=http\://c000486-hf\:8080/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.symbol=.
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.id=20131106_042605
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.lat.1=-43.56259844504341
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.lat.0=-43.56259944504341
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.end=1383712151687
+au.csiro.marine.dataview.loaders.ShapeLoader.commonwealth_marine_reserves_network_july2013.shp.path=/home/swath/shape/commonwealth_marine_reserves_network_july2013.shp
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.lat.0=-10.165032377969114
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.refresh=0
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.points=1
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.comments=\ 
+au.csiro.marine.dataview.loaders.RasterLoader.datasets=geomorphology\:EEZ,nat_map\:bathy_pyr,swath\:aus_eez_limit,swath\:bathy_pyramid,/home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.source=file
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.base=select * from
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.delay=500
+au.csiro.marine.dataview.loaders.DatabaseLoader.queries=base,afma_fisheries,afma_species,afma_trawls
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.id=20131106_042910
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.source=wms
+region.scalefactor=1.6481116496357292E7
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.end=1383712001063
+left.divider.location=406
+load.pane=Left
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.comments=\ 
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.format=image/png
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.server=http\://www.marine.csiro.au/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.refresh=0
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.name=GA mulitbeam 2012
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_trawls=select * from OPERATION_CSIRO 
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.srs=EPSG\:4326
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.symbolsize=30.0
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.title=High resolution public bathymetry
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.file=/home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif
+au.csiro.marine.dataview.loaders.AnnotationLoader.datasets=20131106_042605,20131106_042639,20131106_042910
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.east=163.201372
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.source=wms
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.bounds.use=true
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.refresh=0
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.lat.1=-43.33428063485001
+region.justification=5
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.lat.0=-43.33428163485001
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.source=wms
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.colour=ff
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.south=-47.203688959999994
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.info=http\://www.marine.csiro.au/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.info=http\://www.marine.csiro.au/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.start=1383712151687
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_fisheries=SELECT AFMA.INDEX1KM_15_SDO.LONGITUDE, AFMA.INDEX1KM_15_SDO.LATITUDE, \nAFMA.S152007.* \nFROM AFMA.INDEX1KM_15_SDO, AFMA.S152007 \nWHERE (AFMA.INDEX1KM_15_SDO.INDEX_ID \= AFMA.S152007.INDEX_ID)
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.name=swath\:bathy_pyramid
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.delay=500
+au.csiro.marine.dataview.loaders.RasterLoader./home/acoustics_scratch_0/national_mapping/coverage/ga/GA_coverage_bathy.tif.north=-9.20118896
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.start=1383712001062
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.format=image/png
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:bathy_pyramid.server=http\://c000486-hf\:8080/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.symbol="GA mulitbeam 2012"
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042605.end=1383711969297
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.symbolsize=10.0
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.info=http\://c000486-hf\:8080/geoserver/wms?SERVICE\=WMS&
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.refresh=0
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.afma_species=SELECT AFMA.INDEX1KM_15_SDO.LONGITUDE, AFMA.INDEX1KM_15_SDO.LATITUDE, \nAFMA.S15199637264002.* \nFROM AFMA.INDEX1KM_15_SDO, AFMA.S15199637264002 \nWHERE (AFMA.INDEX1KM_15_SDO.INDEX_ID \= AFMA.S15199637264002.INDEX_ID)
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.points=2
+au.csiro.marine.dataview.loaders.RasterLoader.geomorphology\:EEZ.delay=500
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.id=20131106_042639
+au.csiro.marine.dataview.loaders.RasterLoader.nat_map\:bathy_pyr.title=Low resolution bathymetry from the Southern Surveyor
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.lon.1=109.13594163435569
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042910.lon.0=109.13594063435569
+au.csiro.marine.dataview.loaders.AnnotationLoader.20131106_042639.lon.0=123.39461941491463
+au.csiro.marine.dataview.loaders.RasterLoader.swath\:aus_eez_limit.format=image/png

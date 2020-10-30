@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>Operations</title>
+  </head>
+
+  <body>
+<img align=right src="images/csiro.png" alt="csiro logo">
+    <h1>Operations</h1>
+
+The operations data set is the list of ship's operations. 
+These activities are recorded into the on ship database as the activity occurs.<br>
+<br>
+All times are in UTC (GMT). The local timezone offset is recorded.<br>
+<br>
+All positions are ship positions.<br>
+<br>
+For each operation the time and location is recorded for each of:
+<table>
+<tr><td>Deployment start</td><td>When the equipment was put over the side</td></tr>
+<tr><td>Operation start</td><td>When sampling commenced</td></tr>
+<tr><td>Operation end</td><td>When sampling finished</td></tr>
+<tr><td>Deployment end</td><td>When the equipment came on board</td></tr>
+</table>
+Operations are displayed as a straight line between operation start and operation end locations with a symbol
+representing the operation type at each end of the line. 
+The line does not represent the ship's track during that period.
+The operation start and end locations represent the ship's location, 
+not the location of the sampling instrument, which in the case of towed equipment, 
+such as sleds and video cameras, may have a layback in the order of twice the water depth.
+<hr>
+<h2>Loading</h2>
+
+<h3>Types</h3>
+You may restrict the operation types to those you select from the list. 
+If no types are selected they will all be loaded.
+
+<h3>Geographic bounds</h3>
+You may restrict the operations to those that include a particular area. 
+Enter the north, south, east and west latitudes and longitudes. 
+Any operations which are within or pass through the region you defined will be loaded.
+An operation "passes through" the region if the rectangle defined by the operation start
+and end locations overlaps with the region at all.
+
+<h3>Load</h3>
+The <code>Load</code> button will load all operations of the currently selected types 
+which fall within the region in to the display area.
+
+<h3>Cancel</h3>
+The <code>Cancel</code> button will be available between when you press the <code>Load</code> button
+and when the operations are displayed. Pressing the <code>Cancel</code> button will abort the
+load, but will not remove any already loaded data.
+
+It will normally take very little time to load the operations data, so the <code>Cancel</code> button
+may not be available.
+
+<h3>Remove</h3>
+The <code>Remove</code> button will remove those operations of the type you currently have selected.
+
+<h3>Remove All</h3> 
+The <code>RemoveAll</code> button will remove all operations from the display.
+<hr>
+
+<!-- Created: Thu May  8 16:42:59 EST 2003 -->
+<!-- hhmts start -->
+Last modified: Fri May  9 09:20:53 EST 2003
+<!-- hhmts end -->
+  </body>
+</html>

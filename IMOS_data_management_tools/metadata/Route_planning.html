@@ -1,0 +1,340 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="LibreOffice 4.0.3.3 (Linux)">
+	<META NAME="AUTHOR" CONTENT="Gordon Keith">
+	<META NAME="CREATED" CONTENT="20130917;14454400">
+	<META NAME="CHANGEDBY" CONTENT="Gordon Keith">
+	<META NAME="CHANGED" CONTENT="20130918;12054700">
+	<STYLE TYPE="text/css">
+	<!--
+		@page { margin: 2cm }
+		P { margin-bottom: 0.21cm }
+		H1 { margin-bottom: 0.21cm }
+		H1.western { font-family: "Arial", sans-serif; font-size: 16pt }
+		H1.cjk { font-family: "Droid Sans Fallback"; font-size: 16pt }
+		H1.ctl { font-family: "Lohit Hindi"; font-size: 16pt }
+		H2 { margin-bottom: 0.21cm }
+		H2.western { font-family: "Arial", sans-serif; font-size: 14pt; font-style: italic }
+		H2.cjk { font-family: "Droid Sans Fallback"; font-size: 14pt; font-style: italic }
+		H2.ctl { font-family: "Lohit Hindi"; font-size: 14pt; font-style: italic }
+		H3 { margin-bottom: 0.21cm }
+		H3.western { font-family: "Arial", sans-serif }
+		H3.cjk { font-family: "Droid Sans Fallback" }
+		H3.ctl { font-family: "Lohit Hindi" }
+		A:link { so-language: zxx }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-AU" DIR="LTR">
+<H1 CLASS="western">DataView route planning</H1>
+<P>Route planning is done using the "Annotations" tab in
+dataview.</P>
+<P>Annotations was originally written to allow recording of notes
+during a voyage. See below for a summary of features many of which
+are not normally used in route planning.</P>
+<H2 CLASS="western">Creating a route</H2>
+<P>There are a number methods of creating annotations:</P>
+<OL>
+	<LI><P>In the Annotations dataset (left) pane, click the "Add"
+	button then shift-left click any points along the route then left
+	click the final point in the route.</P>
+	<LI><P>In the Annotations data details (right) pane, click the "Add
+	new annotation" button then shift-left click any points along
+	the route then left click the final point in the route.</P>
+	<LI><P>In the Annotations data details (right) pane, click the
+	"Enter new annotation" button then type or paste the
+	details into the dialog box and click the "Add" button.
+	The dialog allows to specify the annotation name, symbol, colour and
+	coordinates. If the "Rectangle bounds" is checked the
+	annotation created will be rectangular box bounded by the two
+	coordinates entered. [Tip: The dialog is not fussy about format and
+	the longitude and latitude may be entered as decimal degrees,
+	decimal minutes or decimal seconds either space or colon separated.
+	A single entry of west/east/south/north (slashes between coordinates
+	in one box) is also acceptable.]</P>
+	<LI><P>In the Annotations data details (right) pane, click the
+	"Duplicate" button to create a new annotation identical
+	to the existing one above. [Tip: useful if you want to edit an
+	existing route and compare with the original.]</P>
+	<LI><P>In the Annotations dataset (left) pane, select a number of
+	existing annotations by control-clicking rows of the table, then
+	click the "Merge" button, enter a name and change the
+	numbers in the "Order" column to create a new annotation
+	from a sequence of existing ones.</P>
+</OL>
+<H2 CLASS="western">Selecting an annotation</H2>
+<P>To view an annotation in the data details (right) pane you either
+click on it's row in the table in the datasets (left) pane or click
+near the annotation in the map pane.</P>
+<H2 CLASS="western">Identifying a point</H2>
+<P>If you left click on the map (center) pane the nearest point on
+the nearest annotation will be selected (highlighted) in the data
+details pane. [Tip: this may not be the annotation previously
+selected.]</P>
+<H2 CLASS="western">Editing a route</H2>
+<P>Points on a route can be moved in three ways:</P>
+<OL>
+	<LI><P>Click on the button in the "Move" column of the
+	data points table for that point then click on its new location in
+	the map pane. [Tip: you can drag to the new location to see the
+	paths leading to and from the point as you place it.]</P>
+	<LI><P>Type new coordinates in decimal degrees in the bold Longitude
+	and Latitude columns.</P>
+	<LI><P>Type new coordinates in variety of formats (decimal
+	degrees/minutes/seconds) Long and Lat columns.</P>
+</OL>
+<P>Points can be added to the route by clicking on the "Add"
+button. This will duplicate the existing point, one of which
+(original or duplicate) can then be moved. [Tip: The distance between
+a point and its duplicate is 0. Check for and remove duplicates
+before writing asciiplans.]</P>
+<P>Points can be deleted from the route by clicking the "Delete"
+button.</P>
+<P>The whole annotation can be moved by specify an "East"
+and "North: distance in m clicking on the "Shift"
+button. [Tip: use with the "Duplicate" button to generate
+a survey grid.]</P>
+<P>Changes to an annotation can be undone and redone using the "Undo"
+and "Redo" buttons (wierdly located at the left of the
+data details pane near the top) until a different annotation is
+selected.</P>
+<P>Tip: When building a long route (more points than will appear on
+the screen) it is easier to add the points to the start of the route
+(top of the table) than to add to the bottom and have to scroll down.
+The "Reverse" button reverses the order of points so you
+can swap which end of the route is at the top.</P>
+<H2 CLASS="western">Saving a route</H2>
+<P>To save a route select the annotation by clicking on its row in
+the datasets (left) pane and click on the "Save" button.
+Multiple annotations can be saved to the one file. If no annotations
+are selected they are all saved to the file.</P>
+<P>In the save annotations dialog you should specify the file format
+then select the file name. The following formats are supported (all
+formats are human readable ascii):</P>
+<UL>
+	<LI><P>SIMRAD job file (*.asciiplan) &ndash; can be read by SIS. An
+	additional dialog will popup asking details of the asciiplan format,
+	the defaults are fine.</P>
+	<LI><P>Endeavour export *.exp &ndash; can be read by the bridge's
+	Endeavour navigation system</P>
+	<LI><P>KML (googleearth) export *.kml &ndash; can be read by google
+	earth and most GIS systems</P>
+	<LI><P>MapInfo Interchange Format *.MIF &ndash; writes a .MIF and
+	.MID file which together can be ready by MapInfo and most GIS
+	systems</P>
+	<LI><P>Properties *.properties &ndash; Java properties file &ndash;
+	can be read by DataView</P>
+	<LI><P>Scene file *.scene &ndash; DataView scene file &ndash; can be
+	read by DataView</P>
+	<LI><P>Annotations file *.notes &ndash; DataView notes file &ndash;
+	can be read by DataView</P>
+</UL>
+<H2 CLASS="western">Loading a saved file</H2>
+<P>You can read a route saved in one of the folling formats by
+clicking on the "Load" button and selecting the file.</P>
+<UL>
+	<LI><P>SIMRAD job file *.asciiplan &ndash; can be read by SIS. 
+	</P>
+	<LI><P>MapInfo Interchange Format *.MIF &ndash; requires a .MIF and
+	.MID file which together can be ready by MapInfo and most GIS
+	systems</P>
+	<LI><P>Properties *.properties &ndash; Java properties file</P>
+	<LI><P>Scene file *.scene &ndash; DataView scene file</P>
+	<LI><P>Annotations file *.notes &ndash; DataView notes file</P>
+	<LI><P>Text .csv or .gmt file &ndash; Ascii file with longitude and
+	latitude as the first two fields</P>
+	<LI><P>Regions file &ndash; Ascii file with lines starting with
+	"west", "east", "south" and
+	"north" and the coordinate</P>
+</UL>
+<P>Tip: no warning is given if a file can't be read. Nothing will
+appear in the Annotation table when the "Loading data in
+background" status clears. 
+</P>
+<H2 CLASS="western">Dataset widgets</H2>
+<P>The following are the parts of the Annotations datasets (left)
+pane. [Tip: the position of the datasets pane can be changed by the
+"View", "Load Panel" menu. It is sometimes
+useful to put the datasets panel in a separate window. On a dual
+monitor setup it can be better to have the map pane solely occupy the
+left screen and move the datasets pane to the center or right.]</P>
+<H3 CLASS="western">Annotations table</H3>
+<P>Table with one row per annotation columns are:</P>
+<UL>
+	<LI><P>"Annotation" symbol and name (not editable) [Tip
+	to change the annotation name use the data details pane]</P>
+	<LI><P>"Show" checkbox. If checked the annotation will
+	appear in the map display.</P>
+	<LI><P>"Symbol" dropdown. The symbol used to display
+	points of the annotation. [Tip: The "." symbol gives
+	just lines. I tend to like solid circles for routes I'm working on]</P>
+	<LI><P>"Size". The size in pixels of the symbol used to
+	display points of the annotation. [Top: The "." and
+	square box symbols are a fixed size]</P>
+	<LI><P>"Colour" used to display the annotation, click
+	this cell then select the colour from the pallette.</P>
+	<LI><P>"Zoom" the map display to the smallest area that
+	will display the whole annotation. If the annotation is a single
+	point it will center the map on the point instead.</P>
+</UL>
+<H3 CLASS="western">Show/Hide buttons</H3>
+<P>Checks or unchecks the "Show" checkbox for all
+selected annotations. If no annotations are selected it applies to
+all.</P>
+<H3 CLASS="western">Add button</H3>
+<P>Click the "Add" button then in the map pane shift-left
+click any points along the route then left click the final point in
+the route to create a new annotation.</P>
+<H3 CLASS="western">Merge button</H3>
+<P>Create a new annotation by merging all selected annotations. The
+original annotations are not changed. You get to specify which order
+you want them to appear in by typing the order number in the table
+which appears. When you change order the table will change to match.</P>
+<P>Tip: You may need to use the "Reverse" button on some
+annotations before merging to ensure the correct direction.</P>
+<H3 CLASS="western">Save/Load button</H3>
+<P>See above Saving a route, Loading a file</P>
+<H3 CLASS="western">Record button</H3>
+<P>Write the selected annotations to the database. Not enabled if no
+database has been defined.</P>
+<H3 CLASS="western">Cancel button</H3>
+<P>Cancel a currently running Load operation. 
+</P>
+<H3 CLASS="western">Remove button</H3>
+<P>Delete the selected annotations.</P>
+<H3 CLASS="western">RemoveAll button</H3>
+<P>Delete all annotations.</P>
+<H2 CLASS="western">Data Details widgets</H2>
+<P>The Data Details pane shows information about the currently
+selected annotation.</P>
+<P>Tip: The data details pane can be moved to a seperate window by
+dragging the pink border to the left.</P>
+<H3 CLASS="western">Name</H3>
+<P>Name of the annotation. 
+</P>
+<P>Tip: names longer than 14? characters are truncated in asciiplans.</P>
+<H3 CLASS="western">Legend</H3>
+<P>If not empty the symbol used for this annotation will appear in a
+legend on the map pane. [Tip: not very useful]</P>
+<H3 CLASS="western">Colour</H3>
+<P>"Colour" used to display the annotation, click this
+cell then select the colour from the pallette.</P>
+<H3 CLASS="western">Symbol</H3>
+<P>Drop down with the symbol used to display points of the
+annotation. [Tip: The "." symbol gives just lines. I tend
+to like solid circles for routes I'm working on]</P>
+<P>The size in pixels of the symbol. [Top: The "." and
+square box symbols are a fixed size]</P>
+<P>The Add button allows you to specify an image that will be added
+to the list of available symbols.</P>
+<H3 CLASS="western">Undo/Redo buttons</H3>
+<P>Undo or redo any changes to this annotation. Changing the selected
+annotation prevents any further undo/redoes.</P>
+<H3 CLASS="western">Show name as symbol</H3>
+<P>Writes the annotation name on the map display instead of a symbol.
+</P>
+<P>Tip: useful for locating sites or operations for a voyage.</P>
+<P>Tip: duplicating an annotation with the original having a symbol
+and the duplicate having the name can be useful.</P>
+<P>Tip: not very useful for lines.</P>
+<H3 CLASS="western">Start/End time</H3>
+<P>Used for recording the start and end of operations aboard ship. 
+</P>
+<P>Tip: not useful for route planning.</P>
+<H3 CLASS="western">Miscellaneous fields</H3>
+<P>When configured a number of additional text/numeric/date times
+fields may appear for recording information about a particular type
+of operation.</P>
+<P>Tip: not useful for route planning.</P>
+<H3 CLASS="western">Length field</H3>
+<P>Displays the total length in m and nautical miles of the
+annotation, the bounding box and the area is square m.</P>
+<P>Tip: the total length in Nm is useful for calculating steaming
+time.</P>
+<P>Tip: the field is selectable so you can copy any part of interest.</P>
+<P>Tip: the bounding box is in the format used by MB-System so
+mbdatalist -R &lt;bounding box&gt; will list the files which provide
+the data inside the annotation. Useful for spot datacleaning.</P>
+<H3 CLASS="western">Point table</H3>
+<P>Table with one line per point of the annotation.</P>
+<P>Tip: click on the table then control-A control-C will copy the
+contents of the table to the clipboard from which they can be pasted
+into a spreadsheet. Cumulative and remaining distances can then
+easily be calculated.</P>
+<P>Columns are:</P>
+<UL>
+	<LI><P>Longitude &ndash; longitude in decimal degrees</P>
+	<LI><P>Latitude &ndash; latitude in decimal degrees</P>
+	<LI><P>Long &ndash; longitude displayed in decimal minutes may be
+	input in many formats</P>
+	<LI><P>Lat - latitude displayed in decimal minutes may be input in
+	many formats</P>
+	<LI><P>m &ndash; distance in metres (not editable) [Tip: if pasting
+	into a spreadsheet use , format]</P>
+	<LI><P>Nm &ndash; distance in nautical miles (not editable) [Tip:
+	check for distance of 0 and remove before writing asciiplans]</P>
+	<LI><P>Bearing &ndash; bearing from previous point in degrees true
+	(not editable) [Tip: check for excessive changes in bearing before
+	writing asciiplans. It is not difficult to accidentally double back
+	when creating a route and people aren't happy if the autopilot
+	follows it]</P>
+	<LI><P>Add button &ndash; duplicate the current point on the route</P>
+	<LI><P>Delete button &ndash; delete the current point on the route</P>
+	<LI><P>Move button &ndash; move the current point to the position
+	clicked on the map. [Tip: click on the button a second time before
+	clicking on the map to cancel the move.] [Tip: you can drag rather
+	than click on the map to get rubberbanding lines]</P>
+	<LI><P>Centre &ndash; centre the map display on this point</P>
+	<LI><P> &ndash; free text field for any notes on the point</P>
+</UL>
+<H3 CLASS="western">Comments field</H3>
+<P>Free text comments field for entering anything you want.</P>
+<H3 CLASS="western">Center button</H3>
+<P>Center the map pane on the center of this annotation</P>
+<H3 CLASS="western">Print button</H3>
+<P>Print this annotation. [Tip: the formatting is not very good]</P>
+<H3 CLASS="western">Zoom button</H3>
+<P>Zoom the map pane on the smallest area containing the whole of
+this annotation.</P>
+<P>If the annotation contains only a single point then center
+instead.</P>
+<H3 CLASS="western">Reverse button</H3>
+<P>Reverse the order of points in the annotation.</P>
+<P>Tip: useful for getting the end you are currently working on to
+the top of the table. May be needed to get the correct point order
+when merging annotations.</P>
+<H3 CLASS="western">Duplicate button</H3>
+<P>Create a new annotation identical to this one.</P>
+<P>Tip: useful to create a copy to edit (e.g. delete all intermediate
+points to get a shortest distance), or before shifting to create a
+survey grid</P>
+<H3 CLASS="western">Shift button</H3>
+<P>Shift the current annotation East and North by the amount
+specified.</P>
+<P>Tip: you can set the East and North amounts by shift left dragging
+the mouse in the map display.</P>
+<H3 CLASS="western">Send button</H3>
+<P>Send the current annotation across the network by UDP to either
+the IP address specified or as a broadcast. A copy of DataView
+running on the recipient machine (all machines on the network for
+broadcast) will receive and display the annotation.</P>
+<P>This option was designed for recording events on the ship and is
+also useful for sharing planning sites and routes. 
+</P>
+<H3 CLASS="western">Add new annotation button</H3>
+<P>In the map pane shift-left click any points along the route then
+left click the final point in the route to create a new annotation.</P>
+<P>Tip: A single left click will create an annotation with two points
+about a decimetre apart.</P>
+<H3 CLASS="western">Enter new annotation button</H3>
+<P>Pops up a dialog which allows the user to create a new annotation
+by entering in up to two points.</P>
+<P>Tip: the format for coordinates is fairly flexible.</P>
+<P>Tip: pasting coordinates is easier than typing them.</P>
+<P>Tip: MB-System/GMT regions such as 150:5/150:10/-37:20/-37:19 can
+be entered into a single field.</P>
+</BODY>
+</HTML>

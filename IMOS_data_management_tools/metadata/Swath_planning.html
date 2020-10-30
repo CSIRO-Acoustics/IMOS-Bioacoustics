@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="LibreOffice 4.0.3.3 (Linux)">
+	<META NAME="AUTHOR" CONTENT="Gordon Keith">
+	<META NAME="CREATED" CONTENT="20130918;12104300">
+	<META NAME="CHANGEDBY" CONTENT="Gordon Keith">
+	<META NAME="CHANGED" CONTENT="20130918;13173600">
+	<STYLE TYPE="text/css">
+	<!--
+		@page { margin: 2cm }
+		P { margin-bottom: 0.21cm }
+		H1 { margin-bottom: 0.21cm }
+		H1.western { font-family: "Arial", sans-serif; font-size: 16pt }
+		H1.cjk { font-family: "Droid Sans Fallback"; font-size: 16pt }
+		H1.ctl { font-family: "Lohit Hindi"; font-size: 16pt }
+		H2 { margin-bottom: 0.21cm }
+		H2.western { font-family: "Arial", sans-serif; font-size: 14pt; font-style: italic }
+		H2.cjk { font-family: "Droid Sans Fallback"; font-size: 14pt; font-style: italic }
+		H2.ctl { font-family: "Lohit Hindi"; font-size: 14pt; font-style: italic }
+		A:link { so-language: zxx }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-AU" DIR="LTR">
+<H1 CLASS="western">DataView swath route planning</H1>
+<P>This page assumes you are familiar with the DataView route
+planning options provided by the Annotations tabs.</P>
+<P>Tip: one or both the "Swaths" and "Annotations"
+data details panes should be torn off by dragging the pink border
+outside the window, otherwise there is too much swapping between
+tabs.</P>
+<H2 CLASS="western">Preparation</H2>
+<P>In the "EM" datasets pane check the port and starboard
+"Show swath coverage times" boxes and enter 1.7 into the
+coverage multiples box.</P>
+<P>Tip: running the next line at 1.7 times existing swath coverage
+gets a good overlap with few gaps.</P>
+<P>Tip: loading swath files uses a fair amount of memory. Every so
+often it is worth coming back to the  EM tab and removing (RemoveAll)
+any swath files which are no longer being used.</P>
+<P>Tip: the "EM" data details pane can be used to examine
+the settings used to acquire data by clicking on individual pings.</P>
+<P>Tip: there is a real time version of the "EM" display
+that can be used on the ship to monitor incoming data from anywhere
+on the ship's network. 
+</P>
+<H2 CLASS="western">Existing data</H2>
+<P>In the "Rasters" tab, select the "WMS"
+button, choose the server <A HREF="http://c000486-hf:8080/geoserver/wms">http://c000486-hf:8080/geoserver/wms</A>
+and click the "List Maps" button. Select the "Hi
+res bathymetry shaded by slope [swath:bathy_slope]" or "High
+resolution public bathymetry [swath:bathy_pyramid]" and click
+the "Load" button.</P>
+<P>Tip: It is sometime useful to also load the "GA 2009
+bathymetry shaded by slope [GA:GA_bathyslope]" (or one of the
+other GA 2009 layers) and "Lower"ing it below the swath
+data to get an idea of the bathymetry where there is no EM300 data.</P>
+<H2 CLASS="western">Selecting swaths</H2>
+<P>In the "Swaths" datasets page load info on all the
+swath files that exist in the area of interest. There are a number of
+ways of doing this. The most straight forward is to get all files in
+the area of the proposed voyage by restricting the geographic bounds
+and loading all data.</P>
+<P>Tip: geographic bounds can also be entered by shift-left dragging
+in the map pane.</P>
+<P>Tip: the "Active" button below the geographic bounds
+must be selected for them to be applied.</P>
+<P>Once all filter conditions have been entered (usually just
+geographic bounds &amp; "Active") click the load button
+and select the datalist you want. 
+</P>
+<P>/home/acoustics_swath/mbproc/em300/datalist.mb-1 is the datalist
+containing all Southern Surveyor EM300 data and is usually the one to
+use. 
+</P>
+<P>/home/acoustics_swath/datalist.mb-1 is the datalist that contains
+all the swath data I have got my hands on.</P>
+<P>Tip: I don't know the path to access these files from Windows.
+Creating a soft link (ln -s) to /home/acoustics_swath on any of the
+unix machines and accessing the file system from Windows via the unix
+machine will work.</P>
+<P>Loading the swath file information will take several minutes. The
+"Loading data in the background" status message will be
+visible at the bottom right while it is loading. If the message is no
+longer visible and no rows have appeared in the Swaths table in the
+"Swaths" dataset pane then the load failed.</P>
+<P>Tip: Once loaded it is possible to select a subset of the loaded
+data by setting the filters and clicking the "Select"
+button and/or by checking the "Select" box in the data
+details pane of swaths of interest. Once selected an additional row
+"Your selections" is added to the table of swath sets.</P>
+<H2 CLASS="western">Viewing swath data</H2>
+<P>Swath files are displayed in the map pane by a pink boxes showing
+the maximum extent of the data and blue lines from the start to end
+of the data. Click on either the box or the line to see the details
+for the file in the "Swaths" data details pane.</P>
+<P>Clicking the "Load data" button in the "Swaths"
+data detail pane will load that swath file into the "EM"
+tab and the swath coverage, 2 x coverage and 1.7 x coverage lines
+will appear in the map pane.</P>
+<P>The new swath route should try to stay as close as possible to the
+1.7 x coverage line without going outside the 2 x coverage line.</P>
+<P>Tip: the last layer displayed is drawn on top. To get the route
+line to appear above the (mess of) swath lines and coverages, in the
+"Annotations" dataset pane uncheck and recheck the "Show"
+box for the route.</P>
+<P>Tip: the "Show Track" button in the "Swaths"
+detail pane replaces the blue start-end line with a purple line that
+follows the ships track. This can be useful for untangling which line
+goes where. Downside &ndash; loading the track uses memory and there
+is no mechanism to unload the track once loaded short of removing and
+reloading the swaths layer.</P>
+<P>Tip: the colours of the swath boxes can be changed in the table in
+the "Swaths" dataset pane, the colours of the swath
+coverage lines is set in the "EM" dataset pane and the
+colour of the route lines can be set in either of the "Annotations"
+panes.</P>
+<H2 CLASS="western">Moving around the map</H2>
+<P>To change the map view:</P>
+<UL>
+	<LI><P>middle button drag to move the map</P>
+	<LI><P>shift-middle drag to draw a box to zoom into</P>
+	<LI><P>control-middle drag to draw a box to zoom out to</P>
+	<LI><P>click the "centre" button in the points table in
+	the "Annotations" data details pane to move that point
+	to the centre of the map pane</P>
+	<LI><P>The right most button above the map pane restores the
+	previous view. It doesn't work very well but it is sometimes useful</P>
+</UL>
+</BODY>
+</HTML>

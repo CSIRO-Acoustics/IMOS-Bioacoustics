@@ -1,0 +1,15 @@
+loaders=Sediments
+connections=/scene/ss200705_sediment.scene
+
+Sediments.class=au.csiro.marine.echo.visualise.SedimentLoader
+Sediments.connection=sediments
+Sediments.table=sediments
+Sediments.symbol=grab
+Sediments.colour=ffc800
+Sediments.tooltip=sediment analyses
+
+sediments.Driver.0=org.hsqldb.jdbcDriver
+sediments.Connect.0=jdbc:hsqldb:${mountpoint}/db/ss200705_sediment
+sediments.User.0=sa
+sediments.Password=
+

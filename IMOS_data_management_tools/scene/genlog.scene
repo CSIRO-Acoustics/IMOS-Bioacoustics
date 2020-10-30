@@ -1,0 +1,15 @@
+connections=/scene/genlog.scene
+
+genlog.Connection.0=none
+genlog.Driver.0=org.hsqldb.jdbcDriver
+genlog.Connect.0=jdbc:hsqldb:${mountpoint}/db/genlog
+genlog.User.0=sa
+genlog.Password=
+
+oro.Connection.0=none
+oro.Driver.0=org.hsqldb.jdbcDriver
+oro.Connect.0=jdbc:hsqldb:${mountpoint}/db/oro
+oro.User.0=sa
+oro.Password=
+au.csiro.marine.dataview.loaders.DatabaseLoader.queries=oro1995
+au.csiro.marine.dataview.loaders.DatabaseLoader.query.oro1995=select start_latitude, start_longitude,\ncount(*) shots, sum(catch_kg)  from GENLOG \nwhere shot_date > '1995' and shot_date < '1996'\ngroup by start_latitude, start_longitude

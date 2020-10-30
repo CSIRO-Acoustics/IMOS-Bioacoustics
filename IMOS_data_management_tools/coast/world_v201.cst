@@ -1,0 +1,61 @@
+# mcf-1.0
+coastline {
+   filename ./2.00/coarse.cst
+   resolution 50000
+
+   coastline {
+     filename ./2.00/low.cst
+     resolution 20000
+
+     coastline {
+        filename ./2.01/tasmania_inter.cst
+        resolution 2500
+
+        coastline {
+           filename ./2.01/tasmania_high.cst
+           resolution 1000
+
+           coastline {
+              filename ./2.01/tasmania_full.cst
+              resolution 70
+	       }
+        }
+     }
+
+     coastline {
+        filename ./2.01/australia_inter.cst
+        resolution 2500
+
+        coastline {
+           filename ./2.01/australia_high.cst
+           resolution 1000
+
+           coastline {
+              filename ./2.01/wa_full.cst
+              resolution 200
+           }
+
+           coastline {
+              filename ./2.01/australia_full.cst
+              resolution 70
+	       }
+        }
+     }
+
+     coastline {
+        filename ./2.00/inter.cst
+        resolution 2000
+
+        coastline {
+           filename ./2.00/high.cst
+           resolution 400
+
+	       coastline {
+              filename ./2.00/full.cst
+              resolution 40
+	       }
+	    }
+     }
+  }
+}
+

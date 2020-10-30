@@ -1,0 +1,45 @@
+<html>
+<head><TITLE>Acoustic Optic System geolocation</TITLE></head>
+<body>
+<h1>Acoustic Optic System geolocation</h1>
+The AOS tab attempts to calculate the most likely position of a towed body from:
+<ul><LI>Depth of towed body</LI>
+<li>Depth below towed body</li>
+<li>Bathymetry model</li></ul>
+<h2>Usage</h2>
+If the AOS tab is not present in dataview, use the <code>File, Load scene</code> menu to load AOS.scene.
+
+In the <code>Filter SD</code> tab use the <code>Browse</code> button to select the bathymetry grid to use (just typing in the grid name isn't sufficient).
+
+The following variables on the <code>Filter SD</code> tab are used in determining position. with the suggested settings:
+<table>
+<TR><TD><code>Port Sector (deg)</code>		</TD><TD>5</TD><TD>Maximum angle to port for possible locations</TD></TR>
+<TR><TD><code>Starboard Sector (deg)</code>	</TD><TD>5</TD><TD>Maximum angle to starboard for possible locations</TD></TR>
+<TR><TD><code>Exclude lower range (%)</code>	</TD><TD>50</TD><TD>Minimum percentage of range for possible locations</TD></TR>
+<TR><TD><code>Exclude larger range (%)</code>	</TD><TD>130</TD><TD>Maximum percentage of range for possible locations</TD></TR>
+<TR><TD><code>Total depth error (m)</code>	</TD><TD>2</TD><TD>Maximum difference between bathymetry and sum of depths</TD></TR>
+<TR><TD><code>Wire:depth ratio</code>		</TD><TD>2</TD><TD>Calculate wire out as this times depth of body. The <code>Minimum</code> check box should <b>not</b> be checked.</TD></TR>
+<TR><TD><code>Auto-adjust wire:depth</code>	</TD><TD>.01</TD><TD>Amount to add/subtract to Wire:depth ratio each time mean possible location is significantly different to range </TD></TR>
+<TR><TD><code>Smooth heading (fixes)</code>	</TD><TD>500</TD><TD>Number of GPS fixes to use for calculating ship's heading</TD></TR>
+<TR><TD><code>Max beacon speed (kn)</code>	</TD><TD>6</TD><TD>Constrain body to a maximum speed through the water</TD></TR>
+<TR><TD><code>Bathymetry offset (m)</code>	</TD><TD>0</TD><TD>Systematic error in bathymetry/depth calculation</TD></TR>
+<TR><TD><code>Winch (m)</code>			</TD><TD>0</TD><TD>Added to range calculated from wire out</TD></TR>
+<TR><TD><code>Current speed (m/s)</code>	</TD><TD>0</TD><TD>Speed of current used to determine set</TD></TR>
+<TR><TD><code>Current direction (deg)</code> 	</TD><TD>0</TD><TD>Direction of current</TD></TR>
+</table>
+
+In the <code>EchoView</code> tab select the files containing the depth of platform and depth below platform information using the <code>Browse</code> button.
+<br><br>
+In the <code>Replay settings</code> dialog for the depth of platfrom file set a delay of 30 ms (higher to slow down the replay) select <code>Synchronize</code> and <code>Pause all</code>. [The program is multi-threaded with separate threads for displaying, calculating values and reading data and using calculated values. If there is insufficient delay in reading the background calculation thread may lag behind and stale values may be used for distance from ship.]
+<br><br>
+In the <code>Replay settings</code> dialog for the depth below platfrom file select <code>Synchronize</code> and <code>Pause all</code> (they should already be selected).
+<br><br>
+While <code>Pause all</code> is selected click the <code>Start</code> button for both files, then unselect <code>Pause all</code> to start the replay.
+<br><br>
+<code>Show incoming data</code> should be deselected for best performance.
+<br><br>
+During replay all the values, including the wire:depth ratio can be manually adjusted to improve performance.
+<br><br>
+When finished recording the track go to the <code>Tracks</code> tab and click the <code>Save</code> button for the <code>Maximum range behind vessel</code> track. Select the <code>Echoview .gps.csv</code> format, enter a filename (you can use the <code>Browse</code> button) then click <code>Save</code>. If you do multiple runs of the replay you should <code>Reset</code> the track before the final run.
+</body>
+</html>

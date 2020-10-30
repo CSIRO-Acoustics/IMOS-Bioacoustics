@@ -1,0 +1,44 @@
+Vessel, Callsign, IMO, comment
+, , 0,
+Adriatic Pearl,,8019928,
+Amaltal Explorer, ZMTZ,8510805, Factory Freezer Trawler Tallys NZ
+Aoraki, ZMAO, 9494125,
+Antarctic Chieftain, VJT6415, 9262833,
+Antarctic Discovery,VKAD ,9123219,Owned and operated by Australian Longline
+Atlas Cove,VHJT,9171008,
+Aurora Australis, VNAA, 8717283,
+Austral Leader II,VHLU,7382770,
+Bluefin,VKBF,8000032,
+Corinthian Bay,VJN4779,9188960,
+Empress Pearl,VM7743,8409214,
+Geelong Star,ROS7,8209171,
+Investigator,VLMJ,9616888,
+Isla Eden,VJN4147,9111694,
+James Clark Ross,ZDLP,8904496,
+Janas, ZMTW, 9057109,  Janas has both NZ and AU registration VJT6226
+Kaharoa, ZM7552, 8000898,
+l'Astrolabe, FHZI, 8418198,
+Ocean Dawn, CB8181,8901470,//ZMA2102, -1 - Cook Islands// MQFJ6, 8618009 - UK // CB8181, 8901470 - Chile
+Okeanos Explorer, WTDH, 8835114, NOAA Ship
+Oscar Dyson, WTEP, 9270335, NOAA Ship
+Oscar Elton Sette,WTEE,8835097,
+Paerangi,ZMDS, 9256664,// now Juvel, LAZH
+Petersen, ZMRG, 7810193,
+Petuna Explorer, , -1,
+Ramform Sovereign,9VBN9,9390460,
+Rehua, ZMRE, 9147784,
+Reuben Lasker, WTEG, 9664988, NOAA Ship
+Riba 1, VHS6191,9211810,
+Saildrone SD1007,SD1007,-1,
+Saildrone SD1008,SD1008,-1,
+Saildrone SD1022,SD1022,-1,
+San Tongariro,ZMA3180,9149914,
+Santo Rocco,LFB13191P,8402826,
+Saxon Onward, VJT5748, 5314987,
+Saxon Progress, VM5869, 5314999,
+Southern Champion, VHGI, 7351147,
+Southern Surveyor, VLHJ, 7113002,
+Tangaroa, ZMFR, 9011571,
+Will Watch,E5WW,7225831
+Tokatu, ZMTK, 9816153
+

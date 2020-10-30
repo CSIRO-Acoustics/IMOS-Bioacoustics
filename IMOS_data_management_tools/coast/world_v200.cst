@@ -1,0 +1,9 @@
+ncoasts=4
+coast0.resolution=25000
+coast0.filename=.\\2.00\\coarse.cst
+coast1.resolution=5000
+coast1.filename=.\\2.00\\low.cst
+coast2.resolution=1000
+coast2.filename=.\\2.00\\inter.cst
+coast3.resolution=20
+coast3.filename=.\\2.00\\high.cst
