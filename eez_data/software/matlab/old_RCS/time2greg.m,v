@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	98.02.06.05.46.07;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@function [gregtime] = time2greg(nodctime)
+% Convert time (decimal days since 1900) to gregorian time (yr mon day ...)
+%
+% function [gregtime] = time2greg(nodctime)
+% 
+% INPUT: nodctime - decimal time (base 1900) as used in NODC WOA94 dataset.
+%
+% OUTPUT: gregorian time vector:   yr mon day hr min sec
+%
+% JRD 29/1/96 
+ 
+gregtime = gregorian(nodctime + 2415020.5);
+
+@

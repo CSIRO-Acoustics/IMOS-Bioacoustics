@@ -1,0 +1,1082 @@
+function data = viz_sv(varargin)
+% viz_sv
+% Function to read and visualise IMOS-SOOP-BA Sv data 
+%
+% Syntax
+%   viz_sv
+%   viz_sv(ncfile)
+%   viz_sv(ncfile, imagefile)
+%   viz_sv(ncfile, imagefile, 'channel', channel)
+%   viz_sv(ncfile, imagefile, 'all')
+%   viz_sv(ncfile, imagefile, 'noplots')
+%   viz_sv(ncfile, imagefile, 'sun')
+%   viz_sv(data_struct,data_array)
+%   viz_sv(...,'title',title)
+%   viz_sv(...,'location',{start end})
+%   viz_sv(...,'channel', channel)
+%   viz_sv(...,'range',[min max])
+%   viz_sv(...,'cmap',cmap)
+%   viz_sv(...,'image',imagefile)
+%   viz_sv(...,'axis',ticktype)
+%   viz_sv(...,'ypos',ypos)
+%   viz_sv(...,'noplots')
+%   viz_sv(...,'sun')
+%   viz_sv(data_struct,data_array, title)
+%
+% Description
+% The viz_sv function reads data from an IMOS_SOOP-BA*.nc file and plots
+% the raw and processed Sv values in dB and the percentage good for each
+% cell along with a plot of the vessel track and raw and processed NASC.
+%
+% viz_sv returns a data structure containing the data extracted from the
+% NetCDF file. This data structure may be passed to later calls of viz_sv
+% to plot other data sets.
+%
+% If viz_sv is called without arguments or the ncfile argument is not a
+% file (e.g. is empty or a directory) the user will be asked to select the
+% file to read.
+%
+% If imagefile is specified and image of the plot will be written to file
+% depending on the imagefile argument:
+%   [] - no file is written
+%   '' - empty string - the plot will be written to a file with the same
+%        name and directory as ncfile with a '.png' extension added.
+%   dir - if imagefile is a valid directory the image will be written to
+%        that directory with the same file name as ncfile with a '.png' 
+%        extension added.  
+%   '-dformat' - an image of the specified format will be written to a file
+%        with the same name as ncfile with a .format extension. See print 
+%        for a list of supported formats.
+%   filename - anything else is treated as the name of the file to write
+%        the image to.
+%
+% If the 'all' option is specified the data structure returned will contain
+% all numeric (float or double) fields of the netCDF file.
+%
+% If the 'noplots' option is specified the data will be read and returned
+% but no plots will be generated on screen - a plot will still be written
+% to file if imagefile is specified.
+%
+% viz_sv(data_struct, data_array) will plot the data in data_array
+% according to the axis found in data_struct. data_struct should be the
+% output of an earlier viz_sv call (data read from a SOOP-BA NetCDF file).
+% data_array may be a field of the data_struct or derived from a field of
+% data_struct but must have the dimensions of the data_struct arrays.
+%
+% title will printed (along with the file name) as part of the plot title,
+% e.g. title({data_struct.file ; title}).
+%
+% channel identifies which channel of a multi-channel (multi-frequency)
+% data set is to be displayed. Channel may be either the integer index of
+% the channel (1 for first channel), the name of the channel or the
+% frequency of the channel (the first channel with that frequency). If the
+% channel can not be identified or there is only one channel, the first
+% channel is used.
+%
+% range will set the range for the color bar, e.g. caxis(range). An empty
+% range will be replaced by the default Sv range [-84, -48].
+%
+% cmap will be used as the colourmap for the plot, e.g. colormap(cmap). Use
+% of the EK500 colourmap may cause matlab to use coarse colourmaps to
+% overcome this explicitly state the number of colours to use e.g. 
+% viz_sv(...,'cmap',jet(64))
+%
+% ticktype is one of 'time', 'lat', 'lon', 'latm', 'lonm'
+%
+% ypos is the number of graph heights from the bottom of the screen to
+% place the plot.
+%
+% 'sun' will use suncyle to calculate the sunrise and sunset times for each
+% interval and add these values to the return structure as data.sun.
+% It will also calculate whether each interval is in daylight (data.day).
+% If a plot is requested it will draw a line on the plot showing day/night.
+% This option requires suncycle.m to be in your path
+% http://mooring.ucsd.edu/software/matlab/doc/toolbox/geo/suncycle.html 
+% Note: this option is fairly slow.
+% Bugs: 'sun' does not yet plot day/night on image files.
+%
+% The minimum requirements for a data_struct is that it must have two
+% fields depth and time containing vectors. data_array must be a 2 or 3 
+% dimensional array length(depth) x length(time) [x length(channels)].
+%
+% Other fields which may be used if present in data_struct are:
+%    longitude - vector with same size as time
+%    latitude  - vector with same size as time
+%    file      - string (usually containing filename) used in title
+%    location  - cell array of two strings to label start and end of plot
+% 
+% Author:   Tim Ryan <tim.ryan@csiro.au>
+%           Gordon Keith <gordon.keith@csiro.au>
+% Version:  2.4
+% Date:     2013-10-11
+
+TIME=0;
+LAT=1;
+LONG=2;
+tickformat=TIME;
+
+DEG=0;
+MIN=1;
+degformat = DEG;
+
+min_sv = -84;
+range = 36; 
+max_sv = min_sv + range;
+
+if nargin == 0
+    ncfile = '';
+
+%
+% If first argument is a data structure plot the second arg
+%    
+elseif isstruct(varargin{1})
+    data = varargin{1};
+    plotdata = varargin{2};
+    time = data.time;
+    depth = data.depth;
+    if isfield(data,'latitude')
+        latitude = data.latitude;
+    else
+        latitude = zeros(size(time));
+    end
+    if isfield(data, 'longitude')
+        longitude = data.longitude;
+    else
+        longitude = zeros(size(time));
+    end
+    
+    if size(plotdata,1) ~= length(depth) || size(plotdata,2) ~= length(time)
+        error('Data array size (%d x %d) does not match axis size (%d x %d)', ...
+            size(plotdata,1), size(plotdata,2), length(depth), length(time));
+    end
+    
+    filename = '';
+    ttle = '';
+    chn = '';
+    range = [floor(min(min(min(plotdata)))) ceil(max(max(max(plotdata)))) ];
+    if range(1) == -Inf ; range(1) = -100; end
+    if range(2) ==  Inf ; range(2) =  100; end
+    location = {'' ''};
+    imagefile = [];
+    cmap = [];
+    channel = 1;
+    ypos = 2;
+    plt = 1;
+    sun = 0;
+    
+    if isfield(data, 'file')
+        filename = data.file;
+    end
+    if isfield(data, 'location');
+        location = data.location;
+    end
+    
+    if nargin == 3
+        ttle = varargin{3};
+    else
+        arg = 2;
+        while  arg < nargin
+            arg = arg + 1;
+            if strcmpi('title', varargin{arg})
+                arg = arg+1;
+                ttle = varargin{arg};
+            elseif strncmpi('location', varargin{arg},3)
+                arg = arg+1;
+                location = varargin{arg};
+            elseif strcmpi('range', varargin{arg})
+                arg = arg+1;
+                range = varargin{arg};
+                if isempty(range)
+                    range = [min_sv, max_sv];
+                end
+            elseif strncmpi('image', varargin{arg},5)
+                arg = arg+1;
+                imagefile = varargin{arg};
+            elseif strcmpi('cmap', varargin{arg})
+                arg = arg+1;
+                cmap = varargin{arg};
+            elseif strncmpi('channel', varargin{arg},2)
+                arg = arg+1;
+                channel = varargin{arg};
+            elseif strncmpi('ypos', varargin{arg},2)
+                arg = arg+1;
+                ypos = varargin{arg};
+            elseif strncmpi('noplots', varargin{arg},3)
+                plt = 0;
+            elseif strncmpi('sun', varargin{arg},3)
+                sun = 1;
+            elseif strcmpi('axis', varargin{arg})
+                arg = arg+1;
+                form = varargin{arg};
+                if strncmpi(form, 'lat',3)
+                    tickformat = LAT;
+                elseif strncmpi(form, 'lon',3)
+                    tickformat = LONG;
+                end
+                if max(form == 'm') || max(form == 'M')
+                    degformat = MIN;
+                end
+            end
+        end
+    end
+    
+    if sun && ~isfield(data,'day')
+        data.sun=zeros(length(data.time),2);
+        for itvl=1:length(data.time)
+            data.sun(itvl,:)=suncycle(data.latitude(itvl), data.longitude(itvl), data.time(itvl));
+        end
+        hour = mod(data.time,1) * 24;
+        data.day = xor(min(data.sun,[],2) < hour & hour < max(data.sun,[],2), ...
+            data.sun(:,1) < data.sun(:,2));
+    end
+    
+    if ndims(plotdata) == 3
+        chn = channel;
+        if ischar(channel) && isfield(data, 'channels')
+            channel=strtrim(channel);
+            for c=1:length(data.channels)
+                if strcmpi(channel,data.channels{c})
+                    channel = c;
+                    break;
+                end
+            end
+        end
+        if ischar(channel)
+            channel = str2double(channel);
+        end
+        
+        if channel > length(data.channels) && isfield(data, 'frequency')
+            channel=strtrim(channel);
+            for c=1:length(data.frequency)
+                if channel == data.frequency(c)
+                    channel = c;
+                    break;
+                end
+            end
+        end
+        
+        if isnan(channel) || channel > size(plotdata,3) || channel < 1 || mod(channel,1) ~= 0
+            fprintf('Using channel 1\n');
+            channel = 1;
+        end
+        
+        plotdata = plotdata(:,:,channel);
+        if isfield(data, 'channels')
+            chn = data.channels{channel};
+        end
+    end
+    
+    
+    if plt
+        echogram(plotdata, ypos, { [filename ' ' chn];  ttle }, location, range, cmap);
+        if sun
+            % plot day at 3/4 of y range, night at 1/4 y range
+            hold on
+            yl=ylim;
+            plot((yl(2) - yl(1)) * (data.day + 0.5) / 2 + yl(1), 'r')
+        end
+    end
+    
+    if ischar(imagefile)
+        write_echogram(plotdata, imagefile, filename, chn, ttle, location, range, cmap);
+    end
+    
+    return
+    
+%    
+% first arg is not a struct - it is an ncfile to plot
+%
+else
+    ncfile = varargin{1};
+end
+
+if nargin < 2
+    imagefile = [];
+else
+    imagefile = varargin{2};
+end
+
+channel = '';
+all = 0;
+plots = 1;
+sun = 0;
+
+arg = 2;
+while arg < nargin
+    arg = arg + 1;
+    if strcmpi('channel', varargin{arg})
+        arg = arg + 1;
+        channel = varargin{arg};
+    end
+    if strcmpi('all', varargin{arg})
+        all = 1;
+    end
+    if strncmpi('noplots', varargin{arg},3)
+        plots = 0;
+    end
+    if strncmpi('sun', varargin{arg},3)
+        sun = 1;
+    end
+end
+
+
+% Ask user for NetCDF file if not provided
+if exist(ncfile, 'file') ~= 2
+    [filename, pathname] = uigetfile(...
+        {'*.nc' '*.nc NetCDF file'; '*' 'All files'}, ...
+        'IMOS-SOOP-BA NetCDF file', ncfile);
+    if isequal(filename,0)
+        error('NetCDF filename required');
+    end
+    ncfile = fullfile(pathname,filename);
+end
+
+if ischar(imagefile) && isempty(imagefile) && isempty(channel)
+    imagefile = [ncfile '.png'];
+end
+
+% open the netcdf file
+if exist(ncfile, 'file') ~= 2
+    fprintf('\n-----------------------------------------------------\n');
+    fprintf('\nnetcdf file %s \ncannot be found, check location\n',ncfile);
+    fprintf('\n-----------------------------------------------------\n');
+else
+    ncid = netcdf.open(ncfile, 'NC_NOWRITE');
+    data.file = ncfile;
+    [~, filename, ~] = fileparts(ncfile);
+    
+    try
+        location{1} = netcdf.getAtt(ncid, ...
+            netcdf.getConstant('NC_GLOBAL'), 'transit_start_locality');
+    catch e     %#ok<NASGU>
+        location{1} = '';
+    end
+    try
+        location{2} = netcdf.getAtt(ncid, ...
+            netcdf.getConstant('NC_GLOBAL'), 'transit_end_locality');
+    catch e     %#ok<NASGU>
+        location{2} = '';
+    end
+    data.location = location;
+    
+    try
+        % read data
+        lat_id = netcdf.inqVarID(ncid, 'LATITUDE');
+        latitude = netcdf.getVar(ncid, lat_id);
+        data.latitude = latitude;
+        lon_id = netcdf.inqVarID(ncid, 'LONGITUDE');
+        longitude = netcdf.getVar(ncid, lon_id);
+        data.longitude = longitude;
+        
+        try
+            depthid =  netcdf.inqVarID(ncid, 'DEPTH');
+        catch e     %#ok<NASGU>
+            depthid =  netcdf.inqVarID(ncid, 'RANGE');
+        end
+        depth = netcdf.getVar(ncid, depthid);
+        data.depth = depth;
+        timeid =  netcdf.inqVarID(ncid, 'TIME');
+        time = netcdf.getVar(ncid, timeid);
+        try
+            time_base = netcdf.getAtt(ncid, timeid, 'units');
+            if strncmpi(time_base, 'days since', 10)
+                time = time + datenum(time_base(12:31));
+            end
+        catch e     %#ok<NASGU>
+            time = time + datenum([1950 01 01]);
+        end
+        data.time = time;
+        
+        try
+            svid = netcdf.inqVarID(ncid, 'Sv');
+            qcid = netcdf.inqVarID(ncid, 'Sv_quality_control');
+            pgid = netcdf.inqVarID(ncid, 'Sv_pcnt_good');
+            svrawid = netcdf.inqVarID(ncid,'Sv_unfilt');
+        catch e     %#ok<NASGU>
+            if isempty(channel)
+                channel = '38';
+            end
+            svid = netcdf.inqVarID(ncid, ['Sv_' channel]);
+            qcid = netcdf.inqVarID(ncid, ['Sv_' channel '_quality_control']);
+            pgid = netcdf.inqVarID(ncid, ['Sv_pcnt_good_' channel]);
+            svrawid = netcdf.inqVarID(ncid,['Sv_unfilt_' channel]);
+        end
+        
+        data.sv = netcdf.getVar(ncid, svid);
+        data.qc = netcdf.getVar(ncid, qcid);
+        data.pg = netcdf.getVar(ncid, pgid);
+        data.svraw = netcdf.getVar(ncid,svrawid);
+        
+        fill = netcdf.getAtt(ncid, svid, '_FillValue');
+        data.sv(data.sv==fill) = NaN;
+        fill = netcdf.getAtt(ncid, pgid, '_FillValue');
+        data.pg(data.pg==fill) = 0;
+        fill = netcdf.getAtt(ncid, svrawid, '_FillValue');
+        data.svraw(data.svraw==fill) = NaN;
+        
+    catch exception
+        warning('VIZ_SV:BAD_READ', [ 'Unable to read Sv: ' exception.message ])
+    end
+    
+    if ndims(data.sv) == 3
+        try
+            fqid =  netcdf.inqVarID(ncid, 'frequency');
+            data.frequency = netcdf.getVar(ncid, fqid);
+            chid =  netcdf.inqVarID(ncid, 'CHANNEL');
+            channels = netcdf.getVar(ncid, chid)';
+            for c = size(channels,1):-1:1
+                ch = channels(c,:);
+                ch(ch == 0) = [];
+                data.channels{c} = strtrim(ch);
+            end
+        catch
+            try
+                data.frequency = netcdf.getAtt(ncid,netcdf.getConstant('NC_GLOBAL'), 'frequency');
+                data.channels = {netcdf.getAtt(ncid,netcdf.getConstant('NC_GLOBAL'), 'channel')};
+            catch
+                if ~isfield(data, 'frequency')
+                    data.frequency = zeros(size(data.sv,3),1);
+                end
+                data.channels = cellstr(num2str(data.frequency));
+            end
+        end
+        
+        if ischar(channel)
+            channel=strtrim(channel);
+            for c=1:length(data.channels)
+                if strcmpi(channel,data.channels{c})
+                    channel = c;
+                    break;
+                end
+            end
+        end
+        if ischar(channel)
+            channel = str2double(channel);
+        end
+        
+        if channel > length(data.channels)
+            for c=1:length(data.frequency)
+                if channel == data.frequency(c)
+                    channel = c;
+                    break;
+                end
+            end
+        end
+        
+        if isnan(channel) || channel > size(data.sv,3) || channel < 1 || mod(channel,1) ~= 0
+            fprintf('Using channel 1\n');
+            channel = 1;
+        end
+    else
+        channel = 1;
+        try
+            data.frequency = netcdf.getAtt(ncid,netcdf.getConstant('NC_GLOBAL'), 'frequency');
+            data.channels = {netcdf.getAtt(ncid,netcdf.getConstant('NC_GLOBAL'), 'channel')};
+        catch
+            if ~isfield(data, 'frequency')
+                data.frequency = 38;
+            end
+            data.channels = {num2str(data.frequency)};    
+        end
+    end
+    
+    % get all data variable, if requested
+    if all
+        [~,nvars,~,~] = netcdf.inq(ncid);
+        for varid = 0:nvars-1
+            [varname,xtype,~,~] = netcdf.inqVar(ncid,varid);
+            if xtype == netcdf.getConstant('NC_FLOAT') || ...
+                    xtype == netcdf.getConstant('NC_DOUBLE')
+                if ~isfield(data, varname)
+                    vardata = netcdf.getVar(ncid,varid);
+                    if ndims(vardata) == 3
+                        vardata = shiftdim(vardata,1);
+                    end
+                    fill = netcdf.getAtt(ncid, varid, '_FillValue');
+                    vardata(vardata==fill) = NaN;
+                    data.(varname) = vardata;
+                end
+            end
+        end
+    end
+    
+    % if temperature and salinity present read
+    try
+        tempid = netcdf.inqVarID(ncid, 'temperature');
+        salid = netcdf.inqVarID(ncid, 'salinity');
+        data.temperature = netcdf.getVar(ncid, tempid);
+        data.salinity = netcdf.getVar(ncid, salid);
+        
+        % read intermediate results if present in file
+        ssid = netcdf.inqVarID(ncid, 'sound_speed');
+        data.soundspeed =  netcdf.getVar(ncid, ssid);
+        said = netcdf.inqVarID(ncid, 'absorption');
+        data.soundabsorption = netcdf.getVar(ncid, said) * 1000;
+        
+        asvid = netcdf.inqVarID(ncid, 'abs_corrected_sv');
+        data.abs_sv =  netcdf.getVar(ncid, asvid);
+        if ndims(data.abs_sv) == 3
+            data.abs_sv = shiftdim(data.abs_sv(1,:,:),1);
+        end
+        data.abs_Sv = 10 * log10(data.abs_sv);
+        
+        usvid = netcdf.inqVarID(ncid, 'uncorrected_Sv');
+        data.uncorrected_sv = netcdf.getVar(ncid, usvid);
+        if ndims(data.uncorrected_sv) == 3
+            data.uncorrected_sv = shiftdim(data.uncorrected_sv(1,:,:),1);
+        end
+        data.uncorrected_sv(data.qc>2)=NaN;
+        data.uncorrected_Sv = 10 * log10(data.uncorrected_sv);
+        
+        data.history = netcdf.getAtt(ncid,netcdf.getConstant('NC_GLOBAL'), 'history');
+    catch e     %#ok<NASGU>
+    end
+    
+    netcdf.close(ncid);
+
+    if ndims(data.sv) == 3
+        chn = data.channels{channel};
+        fields = fieldnames(data);
+        for f = 1:length(fields)
+            if ndims(data.(fields{f})) == 3
+                data.(fields{f}) = shiftdim(data.(fields{f}),1);
+            end
+        end
+    else
+        chn = '';
+    end
+    
+    try
+        % Ignore bad data
+        data.sv(data.qc>2)=NaN;
+        
+        % convert to dB
+        data.Sv = 10 * log10(data.sv);
+        data.Svraw = 10 * log10(data.svraw);
+        
+        % calculate NASC
+        data.mean_Sv = 10*log10(nmean(data.sv));
+        data.NASC = 4*pi*1852*1852*10.^(data.mean_Sv./10)*1200;
+        
+        data.mean_Svraw = 10*log10(nmean(data.svraw));
+        data.NASCraw = 4*pi*1852*1852*10.^(data.mean_Svraw./10)*1200;
+    catch exception
+        warning('VIZ_SV:BAD_SV', [ 'Unable to compute Sv ' exception.message])
+    end
+    
+    if sun
+        data.sun=zeros(length(data.time),2);
+        for itvl=1:length(data.time)
+            data.sun(itvl,:)=suncycle(data.latitude(itvl), data.longitude(itvl), data.time(itvl));
+        end
+        hour = mod(data.time,1) * 24;
+        data.day = xor(min(data.sun,[],2) < hour & hour < max(data.sun,[],2), ...
+            data.sun(:,1) < data.sun(:,2));
+    end
+    
+    Sv = data.Sv(:,:,channel);
+    pg = data.pg(:,:,channel);
+    Svraw = data.Svraw(:,:,channel);
+    NASC = data.NASC(:,:,channel);
+    NASCraw = data.NASCraw(:,:,channel);
+    
+    % If second argument was given write Sv image to file
+    if ischar(imagefile)
+        write_echogram(Sv, imagefile, ncfile, chn, 'Sv mean (dB re 1 m-1)', ...
+            location, [min_sv max_sv], EK500colourmap());
+    end
+    
+    % Finish if no plots are wanted.
+    if ~plots
+        return
+    end
+    
+    filename = [filename ' ' chn];
+    
+    % plot track
+    figure
+    hold on
+    plot(data.longitude,data.latitude,'r.');
+    
+    % midnight positions
+    begin = floor(time(1));
+    fin = floor(time(end)) - begin;
+    
+    lt = zeros(fin, 1);
+    ln = zeros(fin, 1);
+    
+    for d = 1:fin
+        day = find(time >= begin + d, 1);
+        lt(d) = data.latitude(day);
+        ln(d) = data.longitude(day);
+        text(ln(d), lt(d), datestr(time(day), 'yyyy-mm-dd'));
+    end
+    plot(ln, lt, '+');
+    
+    xlabel('Longitude');
+    ylabel('Latitude');
+    title({ filename; 'Voyage Track'}, 'Interpreter', 'none');
+    
+    lat = median(data.latitude);
+    set(gca, 'DataAspectRatio', [1 cosd(lat) 1 ]);
+    
+    % plot the sv data
+    echogram(Sv, 2, { filename ;  'Sv mean (dB re 1 m-1)' }, ...
+        location, [min_sv max_sv]);
+    if sun
+        hold on
+        yl=ylim;
+        plot((yl(2) - yl(1)) * (data.day + 0.5) / 2 + yl(1), 'r')
+    end
+
+    echogram(Svraw, 1, { filename ;  'Sv mean (dB re 1 m-1), Unfiltered data' }, ...
+        location, [min_sv max_sv])
+    if sun
+        hold on
+        yl=ylim;
+        plot((yl(2) - yl(1)) * (data.day + 0.5) / 2 + yl(1), 'r')
+    end
+    
+    echogram(pg,  0.1, { filename ;  'percent accepted' }, location, [0 100]);
+    if sun
+        hold on
+        yl=ylim;
+        plot((yl(2) - yl(1)) * (data.day + 0.5) / 2 + yl(1), 'r')
+    end
+    
+    % echointegration plots
+    figure
+    hold on
+    plot(NASC,'g');
+    plot(NASCraw,'r');
+    
+    legend('NASC', 'raw NASC');
+    xlabel('Intervals');
+    ylabel('NASC');
+    title({ filename ; 'echointegration' }, 'Interpreter', 'none');
+    
+    zoom(gcf, 'reset');
+    if max(NASC) > 0
+        ylim([0, max(NASC)]);
+    end
+end
+
+% plot data in time v depth
+    function echogram(dataset, position, ttle, location, range, cmap)
+        
+        screen = getScreen();        
+        [dheight, dwidth] = size(dataset);
+        if screen(3) - screen(1) < dwidth + 100
+            ll = { location{1}, '2 -->' };
+            if nargin < 6
+                cmap=EK500colourmap();
+            end
+            swidth=screen(3) - screen(1) - 200;
+            page=0;
+            while page * swidth < dwidth
+                dstart = page * swidth + 1;
+                page = page + 1;
+                dend = page * swidth;
+                if dend >= dwidth
+                    dend = dwidth;
+                    ll{2} = location{2};
+                end
+                ds=dataset(:,dstart:dend,1);
+                echogram(ds, position, ttle, ll, range, cmap)
+                set(gcf, 'User', dstart-1);
+                ticks(gcf);
+                
+                ll ={ ['<-- ' num2str(page)], [num2str(page + 2) ' -->']};               
+            end
+            
+            return
+        end
+        
+        figure
+        drawnow     % need to draw figure before setting position on dual screen systems
+        
+        imagesc(dataset(:,:,1), range)
+        if nargin < 6 || isempty(cmap)
+            colormap(EK500colourmap())
+        else
+            colormap(cmap)
+        end
+        
+        set(zoom,'ActionPostCallback',@ticks)
+        set(pan,'ActionPostCallback',@ticks)
+        
+        if tickformat == LAT
+            xlabel('Latitude')
+        elseif tickformat == LONG
+            xlabel('Longitude')
+        else
+            xlabel('TIME (UTC)')
+        end
+        
+        ylabel('Depth (m)')
+        title(ttle, 'Interpreter','none');
+        
+        colorbar;
+        
+        % fit figure on "screen"
+        % calculate image size
+        left = 80;
+        bot  = 50;
+        width = dwidth + 2 * left;
+        height = dheight + 2 * bot;
+        base = 100 + floor(position * 1.4 * height);
+        set(gcf, 'Position',  [screen(1) base width height]);
+        pos = get(gcf, 'Position');
+        
+        text(0, -10, location{1});
+        text(dwidth, -10, location{2}, 'HorizontalAlignment', 'right');
+        
+        % keep figure from going over top of screen
+        opos = get(gcf, 'OuterPosition');
+        above = opos(2) + opos(4) - screen(4);
+        if above > 0
+            pos(2) = pos(2) - above;
+            set(gcf, 'Position', pos);
+        end
+        
+        % if figure is too wide for screen
+        if screen(3) - screen(1) < width
+            left = (screen(3) - screen(1) - opos(3) + pos(3) - dwidth) / 2;
+            if left < 30
+                left = 30;
+            end
+        end
+        
+        % set image to one pixel per cell
+        set(gca, 'Units', 'pixels');
+        set(gca, 'Position', [left, bot, dwidth, dheight]);
+        set(gca, 'Units', 'normalized');
+        
+        button_panel = uibuttongroup(gcf, ...
+            'SelectionChangeFcn', @xFormat, ...
+            'Units',        'pixels', ...
+            'Position',     [0 0 500 20]);
+        
+        uicontrol(button_panel, ...
+            'Style',        'radiobutton', ...
+            'TooltipString', 'Show time across X axis', ...
+            'Tag',          'time', ...
+            'String',       'Time', ...
+            'Value',        tickformat == TIME, ...
+            'User',         TIME, ...
+            'Units',        'pixels', ...
+            'Position',     [0 0 100 20]);
+        uicontrol(button_panel, ...
+            'Style',        'radiobutton', ...
+            'TooltipString', 'Show latitude across X axis', ...
+            'Tag',          'latitude', ...
+            'String',       'Latitude', ...
+            'Value',        tickformat == LAT && degformat == DEG, ...
+            'User',         LAT, ...
+            'Units',        'pixels', ...
+            'Position',     [100 0 100 20]);
+        uicontrol(button_panel, ...
+            'Style',        'radiobutton', ...
+            'TooltipString', 'Show longitude across X axis', ...
+            'Tag',          'longitude', ...
+            'String',       'Longitude', ...
+            'Value',        tickformat == LONG && degformat == DEG, ...
+            'User',         LONG, ...
+            'Units',        'pixels', ...
+            'Position',     [200 0 100 20]);
+        uicontrol(button_panel, ...
+            'Style',        'radiobutton', ...
+            'TooltipString', 'Show latitude across X axis in deg:min', ...
+            'Tag',          'lat:min', ...
+            'String',       'Lat (d:m)', ...
+            'Value',        tickformat == LAT && degformat == MIN, ...
+            'User',         LAT, ...
+            'Units',        'pixels', ...
+            'Position',     [300 0 100 20]);
+        uicontrol(button_panel, ...
+            'Style',        'radiobutton', ...
+            'TooltipString', 'Show longitude across X axis in deg:min', ...
+            'Tag',          'long:min', ...
+            'String',       'Long (d:m)', ...
+            'Value',        tickformat == LONG && degformat == MIN, ...
+            'User',         LONG, ...
+            'Units',        'pixels', ...
+            'Position',     [400 0 100 20]);
+        
+        % update axis
+        ticks(gcf)
+    end
+
+% Colour map used by EK500
+    function [EK500cmap]=EK500colourmap()
+        
+        EK500cmap = [255   255   255   % white
+            159   159   159   % light grey
+            95    95    95   % grey
+            0     0   255   % dark blue
+            0     0   127   % blue
+            0   191     0   % green
+            0   127     0   % dark green
+            255   255     0   % yellow
+            255   127     0   % orange
+            255     0   191   % pink
+            255     0     0   % red
+            166    83    60   % light brown
+            120    60    40]./255;  % dark brown
+    end
+
+    function xFormat(panel,event)
+        tickformat = get(event.NewValue, 'User');
+        
+        if tickformat == LAT
+            xlabel('Latitude')
+        elseif tickformat == LONG
+            xlabel('Longitude')
+        else
+            xlabel('TIME (UTC)')
+        end
+        
+        tag = get(event.NewValue, 'Tag');
+        if length(tag) > 3 && strcmp(tag(end-2:end), 'min')
+            degformat = MIN;
+        else
+            degformat = DEG;
+        end
+        
+        fig = get(panel, 'Parent');
+        ticks(fig, event)
+    end
+
+% redraw time and depth ticks on plot
+    function ticks(figure,~)
+        caxes=get(figure,'CurrentAxes');
+        
+        % depth ticks
+        ytick=get(caxes,'YTick');
+        set(caxes,'YTickLabel',depth(floor(ytick)));
+        
+        offset = 0;
+        x_lim=get(caxes,'XLim');
+        user = get(gcf, 'User');
+        if ~isempty(user) && isfloat(user)
+            offset = user;
+        end
+        x_lim = x_lim + offset;
+        
+        %
+        % Label X axis using latitude or longitude
+        %
+        if tickformat == LAT || tickformat == LONG
+            
+            if tickformat == LONG
+                ticker = longitude;
+            else
+                ticker = latitude;
+            end
+            
+            ticker = ticker(ceil(x_lim(1)):floor(x_lim(2)));
+            mint = min(ticker);
+            maxt = max(ticker);
+            trange = maxt - mint;
+            if degformat == MIN
+                if trange > 2
+                    tock = 1;
+                elseif trange > .5
+                    tock = 4;
+                else
+                    tock = 60;
+                end
+            else
+                if trange > 2
+                    tock = 1;
+                elseif trange > .2
+                    tock = 10;
+                else
+                    tock = 100;
+                end
+            end
+            
+            tickedge = floor(ticker * tock);
+            tk=tickedge;
+            tk(end) = [];
+            tickedge(1) = [];
+            xtick = find(tk ~= tickedge);
+            xtick = xtick + 1;
+            xlabels = num2str(ticker(xtick),'%4.0f');
+            if tock > 1
+                if degformat == MIN
+                    xmin = abs(ticker(xtick));
+                    xmin = xmin - floor(xmin);
+                    xmin = xmin * 60;
+                    colon= char(ones(length(xmin),1) * ':');
+                    xlabels = [ xlabels colon num2str(xmin, '%02.0f') ];
+                else
+                    if tock == 10
+                        xlabels = num2str(ticker(xtick),'%6.1f');
+                    else
+                        xlabels = num2str(ticker(xtick),'%7.2f');
+                    end
+                end
+            end
+            xtick = xtick + ceil(x_lim(1));
+            
+        else
+            %
+            % Label X Axis using Time
+            %
+            
+            start=time(ceil(x_lim(1)));
+            finish=time(floor(x_lim(2)));
+            
+            len=finish-start;
+            if len > 2
+                format=29;      % 'yyyy-mm-dd'
+                tock=1;         % day
+            elseif len > .5
+                format = 'yyyy-mm-dd HH:MM';
+                tock=4;         % 6 hr
+            elseif len > .1
+                format = 15;    % 'HH:MM'
+                tock=24;        % hour
+            else
+                format = 13;    % 'HH:MM:SS'
+                tock=96;        % quarter hour
+            end
+            
+            xtock=(ceil(start*tock):1:finish*tock)/tock;
+            xtick(length(xtock))=0;
+            for i=1:length(xtock)
+                xtick(i)=find(time>xtock(i),1);
+            end
+            
+            xlabels = datestr(time(xtick), format);
+        end
+        
+        set(caxes,'XTick',xtick - offset);
+        set(caxes,'XTickLabel',xlabels);
+    end
+
+% write current figure to file
+    function write_echogram(dataset, imagefile, file, channel, ttle, location, range, cmap)
+        
+        driver = '-dpng';
+        [~, name, ext] = fileparts(file);
+        
+        if ~isempty(channel)
+            channel = ['_' channel];
+        end
+        
+        % does image file end in a '?'
+        ask = 0;
+        if ~isempty(imagefile) && imagefile(end) == '?';
+            ask = 1;
+            imagefile = imagefile(1:end-1);
+        end
+        % is an empty character string
+        if isempty(imagefile)
+            imagefile = [ file channel '.png' ];
+        end
+        % is a driver
+        if imagefile(1) == '-' && imagefile(2) == 'd'
+            driver = imagefile;
+            imagefile = [ file channel '.' imagefile(3:end) ];
+        end
+        % is a directory
+        if isdir(imagefile)
+            imagefile = fullfile(imagefile, [ name ext channel '.png' ]);
+        end
+        % ask the user if the image file ended in ?
+        if ask
+            [imagefile, ipath] = uiputfile(imagefile);
+            if imagefile == 0
+                return
+            end
+            imagefile = fullfile(ipath, imagefile);
+        end
+        
+        figure
+        
+        % size figure to hold full data set
+        dotspercell = 1;
+        resolution = 300;
+        fontsize = 1500 * dotspercell / resolution;
+        dwidth = size(dataset,2);
+        wdth = dwidth*dotspercell/resolution;
+        hght = size(dataset,1)*dotspercell/resolution;
+        left = 0.5 + 50 / resolution;
+        bot  = 4 * fontsize / 72;
+        width = wdth + 2 * left;
+        height = hght + 2 * bot;
+        set(gcf, 'Units', 'inches');
+        set(gcf, 'Position', [0, 0.5, width, height ] );
+        
+        set(gcf, 'PaperUnits', 'inches');
+        set(gcf, 'PaperSize', [width height]);
+        set(gcf, 'PaperPositionMode', 'manual');
+        set(gcf, 'PaperPosition', [0 0 width height]);
+        
+        set(gca, 'FontSize', fontsize);
+        
+        imagesc(dataset, range)
+        if isempty(cmap)
+            colormap(EK500colourmap)
+        else
+            colormap(cmap)
+        end
+        
+        if tickformat == LAT
+            xlabel('Latitude')
+        elseif tickformat == LONG
+            xlabel('Longitude')
+        else
+            xlabel('TIME (UTC)')
+        end
+        
+        ylabel('Depth (m)')
+        title({ [ name ext ] ;  ttle }, 'Interpreter','none')
+        step = 10^ceil(log10((range(2) - range(1)) / 6));
+        if (range(2) - range(1)) / step < 1.5
+            step = step / 5;
+        elseif (range(2) - range(1)) / step < 3
+            step = step / 2;
+        end
+        colorbar('FontSize', fontsize, 'YTick', step * ceil(range(1)/step):step:range(2));
+        text(0, -15, location{1}, 'FontSize', fontsize);
+        text(dwidth, -15, location{2}, 'HorizontalAlignment', 'right', 'FontSize', fontsize);
+        
+        set(gca, 'Units', 'inches');
+        set(gca, 'Position', [left, bot, wdth, hght]);
+        
+        ticks(gcf)
+        drawnow;
+        
+        print(gcf, driver, imagefile, ['-r' num2str(resolution)]);
+        
+        close;
+    end
+
+% calculate mean ignoring NaN values
+    function nmean = nmean(data)
+        nan = isnan(data);
+        data(nan) = 0;
+        count = sum(~nan);
+        count(count==0) = NaN;      % prevent divide by 0
+        nmean = sum(data)./count;
+    end
+
+% calculate plottable area of screen, this gets hairy for multiple monitors
+% returns [left top width height]
+    function screen = getScreen()
+        screen = get(0, 'ScreenSize');
+        
+        mpos = get(0,'MonitorPosition');
+        if ispc
+            screen(1) = min(mpos(:,1));
+            screen(3) = max(mpos(:,3));
+        elseif isunix
+            screen(1) = min(mpos(:,1));
+            screen(3) = max(mpos(:,1) + mpos(:,3));
+        elseif ismac
+        end
+    end
+end

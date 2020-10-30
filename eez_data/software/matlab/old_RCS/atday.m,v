@@ -1,0 +1,126 @@
+head	1.3;
+access;
+symbols;
+locks
+	dun216:1.3; strict;
+comment	@# @;
+
+
+1.3
+date	99.07.16.06.14.45;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	97.04.17.05.47.51;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Evaluate a set of means and annual and semi-annual harmonics are the specified
+time(s) of year.
+@
+
+
+1.3
+log
+@Generalise so can have both doy and mn as vectors
+@
+text
+@% ATDAY:  Evaluate a mean field and temporal harmonics at a given day-of-year
+%
+% INPUT: doy - scalar or vector day-of-year
+%        mn  - mean, scalar or same-size as doy, or any shape if doy is scalar
+%        an  - complex annual coeffs, same size as mn
+%        sa  - [optional] complex semi-annual coeffs, same size as mn
+%
+% OUTPUT: val - value at day-of-year
+%
+% Jeff Dunn CSIRO Marine Research   Last mod: 16/7/99
+%
+% USAGE:  val = atday(doy,mn,an,sa);
+
+function val = atday(doy,mn,an,sa)
+
+if nargin==0
+  disp('val = atday(doy,mn,an,sa)');
+  return
+end
+
+ii = find(isnan(an));
+if ~isempty(ii)
+  an(ii) = zeros(size(ii));
+end
+
+val = mn + real(an.*exp(-i*2*pi/366*doy));
+
+if nargin==4 & ~isempty(sa)
+  ii = find(isnan(sa));
+  if ~isempty(ii)
+    sa(ii) = zeros(size(ii));
+  end
+  val = val + real(sa.*exp(-i*4*pi/366*doy));
+end
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d3 4
+a6 1
+%   Note: Can have scalar doy and non-scalar mn,  OR vise-versa.
+d8 5
+a12 1
+% USAGE:  val = atday(doy,mn,an,sa)
+d26 1
+a26 1
+val = mn + real(an*exp(-i*2*pi/366*doy));
+d28 1
+a28 1
+if nargin==4
+d33 1
+a33 1
+  val = val + real(sa*exp(-i*4*pi/366*doy));
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 5
+a5 1
+% [zitm]=zitgrid(tm,zi,zi_an,zi_sa)
+d7 1
+a7 1
+function [zitm]=zitgrid(tm,zi,zi_an,zi_sa)
+d10 1
+a10 1
+  disp('[zitm]=zitgrid(tm,zi,zi_an,zi_sa)');
+d14 3
+a16 3
+ii = find(isnan(zi_an));
+if ii~=[]
+  zi_an(ii) = zeros(size(ii));
+d19 1
+a19 1
+zitm = zi + real(zi_an*exp(-i*2*pi/366*tm));
+d22 3
+a24 3
+  ii = find(isnan(zi_sa));
+  if ii~=[]
+    zi_sa(ii) = zeros(size(ii));
+d26 1
+a26 1
+  zitm = zitm + real(zi_sa*exp(-i*4*pi/366*tm));
+@

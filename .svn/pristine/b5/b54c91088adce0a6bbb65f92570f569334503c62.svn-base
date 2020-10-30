@@ -1,0 +1,263 @@
+function export_sv_fast(EvApp, control, ev_filelist)
+% Export Sv from EchoView worksheets to .csv files from variables resampled
+% to the IMOS resolution (e.g. 1000 m  x 10 m, 100 m * 10 m)
+%
+% Inputs:
+%   EvApp       a handle to a COM object of an EchoviewApplication.
+%   control     structure containing the following fields:
+%       echointegration_directory   name of directory to write .csv files
+%                                   in 'echointegration_output'
+%       Grid_height                 height of grid to generate
+%       Grid_distance               interval of grid to generate
+%       export_reference            flag export reference variable?
+%       export_reference_variable_name_fast',       'Raw_Sv_%s_resampled');	                
+%       export_final                flag export final variable?
+%       export_final_variable_name_fast',       'Final_%s_cleaned_resampled');	        
+%       export_reject               flag export reject variable?
+%       export_rejectdata_variable_name_fast',       'Reject_number_samples_resampled_%s');
+%       export_rawnumsamples_variable_name_fast',       'Raw_number_samples_resampled_%s');	        	        
+%       export_noise               flag export noise variable?
+%       export_noise_variable_name_fast', 'Noise_%s_resampled');
+%       export_background          flag export background noise variable?
+%       export_background_variable_name_fast', 'Background_%s_resampled');        
+%       channel                     cell array of channels to export
+%       ev_filelist list of worksheets to export from    
+% 
+%       Program is a modified (hacked!!) version of Gordon Keiths export_sv 
+%       Tim Ryan 18/05/2017
+
+    [path, ~, ~] = fileparts(ev_filelist{1});
+    [path, ~, ~] = fileparts(path);
+    
+    if isempty(EvApp)
+        EvApp = actxserver(control.EvApp);
+    end
+    
+    Echointegration_Output_dir = fullfile(path, control.echointegration_directory);
+    if ~isdir(Echointegration_Output_dir)
+        mkdir(Echointegration_Output_dir);
+    end
+    
+    % export the version information
+    fid = fopen([Echointegration_Output_dir '\Echoview_version.txt'],'w+');
+    try
+        fprintf(fid, '%s\n',EvApp.version);
+    catch
+        EvApp = actxserver(control.EvApp);
+        fprintf(fid, '%s\n',EvApp.version);
+    end    
+    fclose(fid);
+    
+    % now export out the csv files in resampled csv format
+    for i=1:length(ev_filelist)
+        if control.verbosity > 1
+            fprintf('%s: exporting Echoview files %d of %d to:\n                     %s\n', datestr(now,'yyyy-mm-dd HH:MM:SS'), i, length(ev_filelist),Echointegration_Output_dir); % making aligned with other progress messages
+        end
+        [~, name, ~] = fileparts(ev_filelist{i});
+        try
+            EvFile = EvApp.OpenFile(ev_filelist{i});
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "dbcont" and press Enter to continue\n');
+            keyboard           
+        end
+        
+        if isempty(EvFile)
+            error('Unable to open %s', ev_filelist{i});
+        end
+        
+        EvApp.Minimize; % minimize Echoview window
+        
+        if ~iscell(control.channel)
+            control.channel = {control.channel};
+        end 
+        
+        for channel = control.channel                  
+            % reference variable - i.e. unfiltered data
+            reference_variable = sprintf(control.export_reference_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, reference_variable, ...
+                                 Echointegration_Output_dir, name,...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            reference_numsamples_variable = sprintf(control.export_rawnumsamples_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, reference_numsamples_variable, ...
+                                 Echointegration_Output_dir, name, ....
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            % intervals - from gps.csv 
+            % export out to echoint by cells, set grid on the resample
+            % variable. this is to give an interval value which is not
+            % given when exporting the resampled Sv data
+            Grid_height = 9999; % set this to give one cell per interval
+            export_var(EvFile, reference_variable, ...
+                       Echointegration_Output_dir, name, ...
+                       Grid_height, control.Grid_distance, control.verbosity);  
+                   
+            % final cleaned data
+            final_variable = sprintf(control.export_final_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, final_variable, ...
+                                 Echointegration_Output_dir, name, ...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            % proportion of data rejected
+            rejectdata_variable = sprintf(control.export_rejectdata_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, rejectdata_variable, ...
+                                 Echointegration_Output_dir, name, ...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            % signal to noise value per cell
+            noise_variable = sprintf(control.export_noise_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, noise_variable, ...
+                                 Echointegration_Output_dir, name, ...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            % background noise per echointegration interval
+            background_variable = sprintf(control.export_background_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, background_variable, ...
+                                 Echointegration_Output_dir, name, ...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+            
+            % Tim/Haris 30/07/2019 to add motion correction factor per cell
+            motion_correction_variable = sprintf(control.export_motion_correction_factor_variable_name_fast, channel{1});
+            export_resampled_var(EvApp, EvFile, motion_correction_variable, ...
+                                 Echointegration_Output_dir, name, ...
+                                 control.max_depth, control.Grid_height, control.Grid_distance, control.verbosity);
+        end
+        
+        try
+            EvFile.Close;
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "dbcont" and press Enter to continue\n');
+        end
+    end
+end
+
+
+function  export_resampled_var(EvApp, EvFile, vname, dir, fname, max_depth, height, distance, verbosity) % added height and distance to set via COM
+% function to export from resampled variables. capture Ev filename as key
+% piece of metadata for later use by read_echointegration
+    EvFileName = EvFile.FileName;
+    dlm = strfind(EvFileName,'\');
+    ev_file_store = [EvFileName(dlm(end)+1:end-2) 'txt'];
+    fid = fopen([dir '\' ev_file_store],'w+');
+    fprintf(fid,'%s\n',EvFile.FileName);
+    fclose(fid);
+    
+% export to csv file from a resampled variable.
+    Var = EvFile.Variables.FindByName(vname);
+
+    if isempty(Var)
+        warning('couldnt find variable: %s', vname) % making it as a warning
+        %keyboard
+        if isempty(Var)
+            warning('skipping export of not found variable: %s', vname) % making it as a warning
+            return
+        end
+    end
+     
+    % set the vertical and horizontal resolution of the resampling
+    % operator as per the following:
+    %'Distance | 100.0 |
+    %DistanceMode | 2 |
+    %MaximumRange | 1000.0 |
+    %MinimumRange | 0.0 |
+    %Mode | All pings in interval |
+    %Percentile | 50.0 |
+    %Samples | 100 |
+    %Statistic | Mean |
+    %UseCustomRanges | true |
+    %WeightPings | false'
+     
+    EvApp.Exec([vname '| Properties  Distance =|' num2str((distance))]);
+    EvApp.Exec([vname '| Properties DistanceMode =|2']); % 2 is GPS (meters)
+    EvApp.Exec([vname '| Properties MaximumRange =|' num2str(max_depth)]);  % set max range
+    EvApp.Exec([vname '| Properties MinimumRange =| 0']);  % set min range - always zero
+    EvApp.Exec([vname '| Properties Mode =| All pings in interval']);
+    EvApp.Exec([vname '| Properties Percentile = |50']); % not applicable when statistic is mean but included for completeness
+
+    if isequal(mod(max_depth/height,1),0)
+        num_samples = max_depth/height; % only work with integer values        
+    else
+        fprintf('Warning: working with non integer cell heights\n');
+        num_samples = ceil(max_depth/height); % non integer divisor round up to work with integer values        
+    end         
+    EvApp.Exec([vname '| Properties Samples =|' num2str(num_samples)]); 
+    EvApp.Exec([vname '| Properties Statistic =| Mean']);
+    EvApp.Exec([vname '| Properties UseCustomRanges =| true']);
+    EvApp.Exec([vname '| Properties WeightPings =| false']);
+           
+    export_file_name = fullfile(dir, [fname '_' vname '.csv']);
+% now export
+    if verbosity > 1
+       fprintf('                     exporting variable %s as %d m X %d m cells\n',vname,height,distance); % making aligned with other progress messages with grid information display
+    end
+    
+    if Var.ExportData(export_file_name) 
+        if verbosity > 1
+            fprintf('                     exporting variable %s completed\n',vname); % making aligned with other progress messages
+        end
+    else
+         fprintf('Echointegration failed\n');
+    end        
+end
+
+
+function export_var(EvFile, vname, dir, fname, height, distance, verbosity)
+    COLUMNS= {
+%    'Interval';        % This export variable is not user accessible
+%    'Layer';           % This export variable is not user accessible
+    'Layer_depth_min';
+    'Layer_depth_max';
+    'Samples' ;         % Deprecated - old version of echoview.
+    'Good_samples';
+    'Lat_M';
+    'Lon_M';
+    'Date_M';
+    'Time_M';
+    'Height_mean';
+    'Depth_mean';
+    'EV_filename';
+    'Program_version';
+    'Sv_mean';
+    'Standard_deviation';
+    'Skewness';
+    'Kurtosis';
+    };
+
+    EvFile.Properties.Export.EmptyCells = 1;
+    for i = 1:size(COLUMNS,1);
+        try
+            EvFile.Properties.Export.Variables.Item(COLUMNS{i,1}).Enabled = 1;
+        catch e
+%             warning('EXPORT:COL', 'Column %s, message %s', COLUMNS{i,1}, e.message);
+        end
+    end
+
+     Var = EvFile.Variables.FindByName(vname);
+     if isempty(Var)
+         warning('couldnt find variable: %s', vname) % making it as a warning
+         %keyboard
+         if isempty(Var)
+             warning('skipping export of not found variable: %s', vname) % making it as a warning
+             return
+         end
+     end
+     VarAc = Var.AsVariableAcoustic;
+     VarAc.Properties.Grid.SetDepthRangeGrid(1, height);
+     VarAc.Properties.Grid.SetTimeDistanceGrid(5, distance);
+     export_file_name = fullfile(dir, [fname '_' vname '_intervals.csv']); % add the _intervals underscore as this is the info we need for laters
+     
+     if verbosity > 1
+        fprintf('                     exporting variable %s as %d m X %d m cells\n',vname,height,distance); % making aligned with other progress messages with grid information display
+     end
+     if VarAc.ExportIntegrationByCellsAll(export_file_name);
+         if verbosity > 1
+            fprintf('                     exporting variable %s completed\n',vname); % making aligned with other progress messages
+         end
+     else
+         fprintf('Echointegration failed\n');
+     end
+end

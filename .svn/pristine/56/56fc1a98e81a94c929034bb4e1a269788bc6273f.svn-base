@@ -1,0 +1,17 @@
+These text files were modified to comply with latest conventions (i.e. ICES:1.10 and IMOS: 1.4).
+
+These text files are read by the processing GUI for metadata records. 
+
+A backup copy of the file prior to editing is available at
+\\oa-archive-hba.it.csiro.au\OA-BA-SOOP-ARCHIVE\IMOS_BASOOP_old versions\Backup_platform_before_edit
+
+
+-Haris
+20 June 2018.
+Updated on 11 Jan 2019.
+Updated on 21 October 2019.
+
+Purpose of this edit:
+
+To keep consistent metadata record for the pre-exisiting IMOS NetCDF.
+To complete all mandatory global attributes available at this juncture.

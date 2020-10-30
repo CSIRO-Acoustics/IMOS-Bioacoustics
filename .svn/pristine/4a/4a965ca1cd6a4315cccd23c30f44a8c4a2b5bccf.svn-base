@@ -1,0 +1,202 @@
+function ev_file_list = create_ev_files(file_sets, EvApp, control, progress)
+% Creates EchoView worksheets for the the specified data files.
+%
+% Inputs:
+%   file_sets   cell array of cell arrays of ES60 (or EK500) file names, an
+%               .ev file is created for each outer array containing all the
+%               files in the inner array.
+%   EvApp       a handle to a COM object of an EchoviewApplication.
+%   control     structure containing the following fields:
+%       echoview_file_location  directory to put .ev files
+%       template                EchoView template used to create worksheets
+%       transit_gps_file        name of file containing GPS for the transit
+%       detect_seafloor         flag for seafloor detection
+%       detect_upper_DSL        flag for deep scattering layer detection
+%       detect_fixed            flag for fixed depth layer
+%       fixed_layer             depth of fixed depth layer
+%       upper_DSL_line          name of upper DSL or fixed line
+%       frequency               transducer frequency
+%       base_variable_name      'Sv_%gkHz'
+%       resample_variable_name  'Sv %g kHz resample for DSL convolution'
+%       filesets                cell array of Fileset names
+%       time_offset             difference between raw file times and UTC
+%       include_pitch           flag to include pitch.csv file
+%       transit_pitch_file      name of file containing pitch for the
+%                               transit, only required if include_pitch
+%       include_roll            flag to include roll.csv file
+%       transit_roll_file       name of file containing roll for the
+%                               transit, only required if include_roll
+%       read_ecs                flag to use ecs file
+%       calibration_file        .ecs file to use
+%   progress    Optional handle to a progress function progress(i,n,file)
+%
+% Ouputs:
+%   ev_file_list name of file containing list of worksheets created.
+%
+
+    fixed_lines = struct('name', { 'exclude firepulse', 'Upper Line', 'Lower Line', '120kHz Lower Line', 'Upper DSL line'}, ...
+        'depth', { 10, 0, 250, 80, 500});
+    
+    if nargin < 4
+        progress = [];
+    end
+    
+    % if echoview connection is not provided run echoview
+    if isempty(EvApp)
+        EvApp = actxserver('EchoviewCom.EvApplication');
+    end
+    
+    ev_file_list = ['Ev_files_' simrad_date_string(file_sets{1,1}{1}) '.txt'];
+    ev_file_list = fullfile(control.echoview_file_location, ev_file_list);
+    
+    % copy the template file to the processed data directory just once
+    % and name with the date that the data was processed
+    template = fullfile(control.echoview_file_location, ...
+        ['Template_D' datestr(now, 'yyyymmdd_THHMMSS') '.ev' ]);
+    copyfile(control.template, template);
+    
+    fid = fopen(ev_file_list, 'w');
+    
+    for i=1:size(file_sets,1);
+        if ~isempty(progress)
+            progress(i,size(file_sets,1),file_sets{i,1}{1}); %#ok<NOEFF>
+        end
+        
+        % ---- create the ev file name based on the name of the first file
+        % in each of the file_sets
+        EvFile = EvApp.NewFile(template);                         
+        evfilename = [simrad_date_string(file_sets{i,1}{1}) '.ev' ];
+        
+        % ---- create the EV file based on named template file ----      
+        evfilename = fullfile(control.echoview_file_location, evfilename);
+        if EvFile.SaveAs(evfilename);         
+            fprintf('Created file %s\n', evfilename);       
+        else
+            fprintf('Failed to create ev file %s \n', evfilename);
+        end
+        fprintf(fid, '%s\n', evfilename); % collate list of created files in a text file for later reference. 
+	pause(10);
+        
+        % first add the transit gps file so that the template can reference this
+        % before adding the raw files     
+        gps = EvFile.Filesets.FindByName('Transit_GPS');
+        if isempty(gps)
+            error('Transit_GPS fileset not found in template');
+        end  
+        if ~gps.DataFiles.Add(control.transit_gps_file);        
+            fprintf('GPS file %s cannot be found. Check that this file has been created and is in the correct location\n', control.transit_gps_file)
+        end
+        gps.TimeOffset = control.time_offset;
+        
+        if control.include_roll
+            roll = EvFile.Filesets.FindByName('Roll');
+            if isempty(roll)
+                error('Roll fileset not found in template');
+            end           
+            if ~roll.DataFiles.Add(control.transit_roll_file);
+                fprintf('Roll file %s cannot be found. Check that this file has been created and is in the correct location\n', control.transit_roll_file)
+            end
+            roll.TimeOffset = control.time_offset;
+        end
+        
+        if control.include_pitch
+            pitch = EvFile.Filesets.FindByName('Pitch');
+            if isempty(pitch)
+                error('Pitch fileset not found in template');
+            end           
+            if ~pitch.DataFiles.Add(control.transit_pitch_file);
+                fprintf('Pitch file %s cannot be found. Check that this file has been created and is in the correct location\n', control.transit_pitch_file)
+            end
+            pitch.TimeOffset = control.time_offset;
+        end
+        
+        % ---- add listed set of raw files to the fileset
+        for f = 1:size(file_sets,2)
+            dataset = EvFile.Filesets.FindByName(control.filesets{f});
+            if isempty(dataset) && f == 1           % ensure backward compatibility, may not be needed
+                dataset =  EvFile.Filesets.Item(0);
+            end
+            if ~isempty(dataset)
+                dataset.TimeOffset = control.time_offset;
+                if control.read_ecs
+                    dataset.SetCalibrationFile(control.calibration_file);
+                end
+                for j=1:length(file_sets{i,f})
+                    if ~dataset.DataFiles.Add(file_sets{i,f}{j})
+                        fprintf('Unable to add file %s\nto %s\n', file_sets{i,f}{j}, control.filesets{f});
+                    end
+                end
+            end
+        end
+        
+        % ---- detect seafloor 
+        if control.detect_seafloor
+            % first set the line pick algorithm and its parameter values
+            EvFile.Properties.LinePick.Algorithm = 'eLinePickBestBottomCandidate';
+            EvFile.Properties.LinePick.StartDepth = 10;
+            EvFile.Properties.LinePick.StopDepth = 1500;
+            EvFile.Properties.LinePick.MinSv = -50;
+            EvFile.Properties.LinePick.UseBackstep = 1; % i.e true
+            EvFile.Properties.LinePick.DiscriminationLevel = -50.0;
+            EvFile.Properties.LinePick.BackstepRange = -30; % don't mess around, get the acoustic bottom well away from the seafloor.
+            EvFile.Properties.LinePick.PeakThreshold = -35.0;
+            EvFile.Properties.LinePick.MaxDropouts = 20;
+            EvFile.Properties.LinePick.WindowRadius = 8;
+            EvFile.Properties.LinePick.MinPeakAsymmetry = -1.0;   
+            fprintf('Picking acoustic bottom\n');
+            base_variable = sprintf(control.base_variable_name, control.channel{1});
+            pick_line(EvFile, base_variable, 'acoustic bottom');    
+        end
+        
+        % ----- detect deep scattering layer
+        if control.detect_upper_DSL
+            fprintf('Picking upper deep scattering layer (DSL) line \n');
+            EvFile.Properties.LinePick.Algorithm = 'eLinePickMaxSv';
+            EvFile.Properties.LinePick.StartDepth = 250;
+            EvFile.Properties.LinePick.StopDepth = 750;
+            EvFile.Properties.LinePick.MinSv = -70;
+            EvFile.Properties.LinePick.UseBackstep = 1; %i.e. false, 1 would equal true
+            EvFile.Properties.LinePick.BackstepRange = -50;
+            resample_variable = sprintf(control.resample_variable_name, control.channel{1});
+            pick_line(EvFile, resample_variable, control.upper_DSL_line)
+        end          
+        
+        % ----- fixed line as basis for deep scattering layer
+        if control.detect_fixed
+            FixedLine = EvFile.Lines.CreateFixedDepth(control.fixed_layer);
+            FixedLine.Name = control.upper_DSL_line;
+        end
+        
+        % ------ Create standard fixed lines 
+        for f = 1: length(fixed_lines)
+            FixedLine = EvFile.Lines.CreateFixedDepth(fixed_lines(f).depth);
+            Line =  EvFile.Lines.FindByName(fixed_lines(f).name);
+            if isempty(Line)
+                FixedLine.Name = fixed_lines(f).name;
+            else
+                Line = Line.AsLineEditable;
+                if isempty(Line)
+                    error('Line %s is not editable',fixed_lines(f).name);
+                end
+                Line.OverwriteWith(FixedLine);                
+            end
+        end
+        
+        EvFile.Save;
+        EvFile.Close;                  
+        fprintf('%.1f percentage complete\n', 100*i/size(file_sets,2));
+    end
+    fclose(fid); 
+end
+
+function pick_line(EvFile,VarName, Line_Name)
+    % assumes ev_file has been created using the appropriate template 
+    Var = EvFile.Variables.FindByName(VarName); 
+    if isempty(Var)
+        fprintf('Variable not found\n'); 
+    else
+        VarAc = Var.AsVariableAcoustic;        
+        Line = VarAc.PickLine(Line_Name);
+    end
+    EvFile.Save;
+end

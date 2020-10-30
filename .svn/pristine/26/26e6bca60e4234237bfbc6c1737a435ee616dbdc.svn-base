@@ -1,0 +1,19 @@
+S, platform_code        = ZDLP
+S, ship_name		= James Clark Ross
+S, ship_type		= Supply and research vessel
+S, ship_code		= JCR
+S, ship_callsign	= ZDLP
+S, ship_alt_callsign	= 
+S, ship_imo             = 8904496
+S, ship_operator	= British Antarctic Survey
+S, ship_home_port       = 
+N, ship_length          = 100 
+N, ship_breadth         = 18
+N, ship_tonnage         = 5732
+N, ship_engine_power    = 8500
+S, ship_noise_design    = 
+S, ship_acknowledgement = Vessel owned and operated by the British Antarctic survey
+S, ship_comments        = 
+S, ship_platform_code   = 74JC
+S, ship_platform_class  = 31
+

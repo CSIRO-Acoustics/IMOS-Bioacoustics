@@ -1,0 +1,41 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@%   Contents of /home/eez_data/software/matlab
+%   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% - - -  CSIRO Climatology access scripts
+% getchunk:   extract a 3D chunk of a given climatology
+% getmap:     extract a 2D horizontal slice of a given climatology
+% getsection: extract vertical profiles at arbitrary geographic positions
+% blankbelow: set a flag so that any of the above scripts overwrite any
+%             data below the ocean bottom with NaNs.
+% eezgrid:    create the lat/long grids on which the Atlas is based.
+% atday:      evaluated extracted mean and harmonics at given day of year.
+% atdaypos:   evaluated extracted mean and harmonics at given positions and 
+%             day of year.
+%
+% - - -  Pathfinder SST
+% pfsst:  Retrieves a map of Pathfinder SST for a given region and date.
+%
+% - - -  Background functions (not for users to invoke directly)
+% do_blanking:  called by Climatology access scripts
+@

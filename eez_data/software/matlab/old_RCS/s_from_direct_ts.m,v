@@ -1,0 +1,314 @@
+head	1.5;
+access;
+symbols;
+locks
+	dun216:1.5; strict;
+comment	@// @;
+
+
+1.5
+date	2002.02.25.01.17.49;	author dun216;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2001.09.27.04.59.36;	author dun216;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2000.11.27.00.27.17;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2000.11.26.22.47.45;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2000.11.25.22.34.09;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Given t casts, get corresponding s casts using s(t) climatology.
+@
+
+
+1.5
+log
+@Further protection against wrongly dimensioned inputs.
+@
+text
+@% S_FROM_DIRECT_TS  Given T casts, return matching S casts from direct TS
+%                 climatology.
+% INPUTS
+%   lo
+%   la
+%   doy  day-of-year of each cast (ie 1-366)
+%   tx   observed temperature casts [ndep,ncast]
+% OUTPUTS
+%   ss   [ndep,NC2]  NC2 is number of casts within region of climatology 
+%   outofreg    index to out-of-region casts
+%
+% Author: Jeff Dunn 26 Nov 2000
+%  Complete revision, which is much faster and recovers data otherwise lost
+%  because with interp3, one or more neighbouring nans make the result nan.
+%
+% $Id: s_from_direct_ts.m,v 1.4 2001/09/27 04:59:36 dun216 Exp dun216 $
+%
+% USAGE: [ss,outofreg] =  s_from_direct_ts(lo,la,doy,tx);
+
+function [ss,outofreg] =  s_from_direct_ts(lo,la,doy,tx)
+
+lo = lo(:)';
+la = la(:)';
+doy = doy(:)';
+ncast = length(lo);
+if size(tx,2)~=ncast
+   if size(tx,1)==ncast
+      tx = tx';
+   else
+      error('S_FROM_DIRECT_TS: wrong dimensions for "tx"')
+   end
+end
+   
+% Temperature groups in t-s climatology. Filenames include tcn, which is t*100.
+tinc = .5;
+tcn = [-250:50:3100];
+tc = tcn/100;
+
+% Define dimensions of t-s climatology
+x0 = 30;
+y0 = -80;
+inc = 1;
+nx = length(30:220);
+ny = length(-80:30);
+
+outofreg = find(lo<30 | lo>=220 | la<-80 | la>=30);
+if ~isempty(outofreg)
+   disp([7 num2str(length(outofreg)) ' points outside region covered by t/s'])
+   lo(outofreg) = [];
+   la(outofreg) = [];
+   doy(outofreg) = [];
+   tx(:,outofreg) = [];
+end
+
+ss = repmat(NaN,size(tx));
+ndep = size(tx,1);
+
+% Begin to convert cast locations to indices into t-s climatology...
+ix = 1+(lo(:)'-x0)/inc;
+iy = 1+(la(:)'-y0)/inc;
+
+% Indices of neighbouring grid points (index = (nrows*(col-1)) + col)
+i1 = round((ny*(floor(ix)-1))+floor(iy));
+i2 = i1+1;
+i3 = round((ny*floor(ix))+floor(iy));
+i4 = i3+1;
+
+% Calc horizontal and "vertical" interpolation weights
+xr = ix-floor(ix);
+yr = iy-floor(iy);
+
+w = [(1-xr).*(1-yr); (1-xr).*yr; xr.*(1-yr); xr.*yr];
+wz = mod(tx,tinc)./tinc; 
+wz = [(1-wz(:)) wz(:)];
+
+
+timc = -i*2*pi/366;
+
+fnm = '/home/dunn/eez/t_s_screen/second_pass/ts_';
+[mn0,an0] = loadonly([fnm num2str(tcn(1)) '_90'],'mn','an');  
+rr = find(isnan(mn0));
+mn0(rr) = zeros(size(rr));
+an0(rr) = zeros(size(rr));
+
+for jj = 1:(length(tc)-1)
+   [mn,an] = loadonly([fnm num2str(tcn(jj+1)) '_90'],'mn','an');
+   rr = find(isnan(mn));
+   mn(rr) = zeros(size(rr));
+   an(rr) = zeros(size(rr));
+   
+   ll = find(tx>=tc(jj) & tx<tc(jj+1));
+   cst = ceil(ll/ndep);
+   cst = cst(:)';
+   
+   if isempty(ll)
+      ic = [];
+   else
+      % We cannot have a salinity of zero, so can use zero as the non-data flag.
+      % If we left it as nan we would have to use the slower nansum below.
+      indx = [i1(cst); i2(cst); i3(cst); i4(cst)];
+      dd0 = mn0(indx);
+      aa0 = ~~dd0;
+      sumw0 = sum(aa0.*w(:,cst));   
+   
+      dd = mn(indx);
+      aa = ~~dd;
+      sumw = sum(aa.*w(:,cst));   
+   
+      % Require t/s values above and below each tx, and that the data is not just 
+      % at points almost the full grid interval away (ie that the good data 
+      % interpolation weight is non-trivial)
+      ic = find(sumw0>.05 & sumw>.05);
+   end
+   
+   if ~isempty(ic)
+      cic = cst(ic);
+      
+      aa0 = aa0(:,ic);
+      dd0 = dd0(:,ic).*aa0;
+      sumw0 = sumw0(ic);
+      s1 = sum(dd0.*w(:,cic))./sumw0;
+
+      indx = [i1(cic); i2(cic); i3(cic); i4(cic)];
+      dd0 = an0(indx).*aa0;
+      tmp = (sum(dd0.*w(:,cic))./sumw0);
+      s1 = s1 + real(tmp.*exp(timc*doy(cic)));
+
+      aa = aa(:,ic);
+      dd = dd(:,ic).*aa;
+      sumw = sumw(ic);
+      s2 = sum(dd.*w(:,cic))./sumw;
+
+      dd = an(indx).*aa;
+      tmp = (sum(dd.*w(:,cic))./sumw);
+      s2 = s2 + real(tmp.*exp(timc*doy(cic)));
+
+      ss(ll(ic)) = s1'.*wz(ll(ic),1) + s2'.*wz(ll(ic),2);
+   end
+   
+   mn0 = mn;
+   an0 = an;
+end
+      
+%--------------------------------------------------------------------------------
+@
+
+
+1.4
+log
+@Fix error arising when handling only one input point.
+@
+text
+@d16 1
+a16 1
+% $Id: s_from_direct_ts.m,v 1.3 2000/11/27 00:27:17 dunn Exp dunn $
+d25 9
+a33 1
+
+@
+
+
+1.3
+log
+@minor tweak
+@
+text
+@d16 1
+a16 1
+% $Id: s_from_direct_ts.m,v 1.2 2000/11/26 22:47:45 dunn Exp dunn $
+d85 2
+a86 1
+
+d92 2
+a93 1
+      dd0 = mn0([i1(cst); i2(cst); i3(cst); i4(cst)]);
+d97 1
+a97 1
+      dd = mn([i1(cst); i2(cst); i3(cst); i4(cst)]);
+d109 1
+a109 1
+   
+d115 2
+a116 1
+      dd0 = an0([i1(cic); i2(cic); i3(cic); i4(cic)]).*aa0;
+d125 1
+a125 1
+      dd = an([i1(cic); i2(cic); i3(cic); i4(cic)]).*aa;
+@
+
+
+1.2
+log
+@Complete revision, which is much faster and recovers data otherwise lost because one or more neighbouring nans make the result nan.
+@
+text
+@d6 1
+a6 1
+%   doy
+d9 2
+a10 1
+%   ss   [ndep,ncast]
+d13 4
+a16 1
+% $Id: $
+d22 3
+d115 1
+a115 1
+      s1 = s1 + real(tmp.*exp(timc*doy(cic)'));
+d124 1
+a124 1
+      s2 = s2 + real(tmp.*exp(timc*doy(cic)'));
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d7 1
+a7 1
+%   tx   observed temperature casts [ncast,ndep]
+d9 1
+a9 1
+%   ss   [ncast,ndep]
+d11 1
+a11 1
+% Author: Jeff Dunn 30 Mar 98   Derived from Ken Ridgway's 'get_clim_sal.m'
+d14 1
+a14 1
+% USAGE: ss =  s_from_direct_ts(lo,la,doy,tx)
+d16 1
+a16 1
+function ss =  s_from_direct_ts(lo,la,doy,tx)
+a17 1
+[ncast,zbot] = size(tx);
+d19 19
+a37 9
+ss = repmat(NaN,ncast,zbot);
+
+scm = repmat(NaN,[111 191 68]);
+sca = repmat(NaN,[111 191 68]);
+tc = [-250:50:3100];
+for jj = 1:length(tc)
+   load(['/home/dunn/eez/t_s_screen/second_pass/ts_' num2str(tc(jj)) '_90']);   
+   scm(:,:,jj) = mn;
+   sca(:,:,jj) = an;
+a38 1
+clear mn an rq nq
+d40 2
+d43 75
+a117 2
+x = 30:220; 
+y = -80:30;
+d119 1
+a119 9
+for n = 1:ncast 
+   ii = find(~isnan(tx(n,:)));
+   if ~isempty(ii)      
+      [tt,jdx] = sort(tx(n,ii));
+      idx = ii(jdx);
+      sz = size(idx);
+      mm = interp3(x,y,tc/100,scm,repmat(lo(n),sz),repmat(la(n),sz),tt);
+      aa = interp3(x,y,tc/100,sca,repmat(lo(n),sz),repmat(la(n),sz),tt);
+      ss(n,idx) = mm + real(aa.*exp(-i*2*pi/366*doy(n)));
+d121 6
+a126 2
+end   
+
+@

@@ -1,0 +1,29 @@
+These text files were modified to comply with latest conventions (i.e. ICES:1.10 and IMOS: 1.4).
+
+Please complete instrument_frequency, instrument_transducer_model, instrument_transceiver_model fields suitable for the new vessel.
+Check text files of existing vessels to get an idea. 
+
+No need to define all metadata in these text file because some fields are automatically defined, or the analyst will be asked later to complete.
+
+Also, note that only metadata that doesn't change should be defined here - other metadata for example 'calibration_date' etc will be changing
+and such metadata shouldn't be defined here.
+
+These text files are read by the processing GUI for metadata records. 
+
+A backup copy of the file prior to editing is available at
+\\oa-archive-hba.it.csiro.au\OA-BA-SOOP-ARCHIVE\IMOS_BASOOP_old versions\Backup_platform_before_edit
+
+
+-Haris
+
+20 June 2018.
+Updated on 11 January 2019.
+Updated on 21 October 2019.
+Updated on 31 October 2019.
+Updated on 13 September 2020.
+Updated on 01 October 2020
+
+Purpose of this edit:
+
+To keep consistent metadata record for the pre-exisiting IMOS NetCDF.
+To complete all mandatory global attributes available at this juncture.

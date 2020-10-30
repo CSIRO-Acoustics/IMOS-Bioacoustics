@@ -1,0 +1,456 @@
+function compare_nc(nc1, nc2)
+%% About compare_nc
+% Function to compare Sv data in two IMOS SOOP-BA NetCDF files
+%% Precondition
+% Requires 'viz_sv' funtion
+% Uses Andreas Berg's sort figures function at end of script
+% Uses 'refline' and 'lsline' functions at end of script to avaoid crashing
+% if Statistics and Machine Learning Toolbox is not licensed
+%% Author
+% Tim Ryan 18/03/2016
+% Haris updated on 22 June 2018 
+% (to do file browsing option, nanmean, changed subplots numbering to avoid overwriting other plots, now plotting against ping axis interval, and avoid Statistics Toolbox license dependency)
+%% Acknowledgement
+% Some additional code hacked from code Sophie Fielding (BAS) kindly provided. 
+%% load the netcdf files using viz_sv function
+    % HK - added browsing option for selecting NC files
+    if nargin == 0
+        ncfile = ''; 
+
+        [filename1, pathname1] = uigetfile(...
+            {'*.nc' '*.nc NetCDF file'; '*' 'All files'}, ...
+            'Select first file', ncfile);
+        if isequal(filename1,0)
+            error('NetCDF filename required');
+        end
+        nc1 = fullfile(pathname1,filename1);
+
+        [filename2, pathname2] = uigetfile(...
+            {'*.nc' '*.nc NetCDF file'; '*' 'All files'}, ...
+            'Select second file', ncfile);
+        if isequal(filename2,0)
+            error('NetCDF filename required');
+        end
+        nc2 = fullfile(pathname2,filename2);
+    end
+ 
+    d1 = viz_sv(nc1,[],'nopplots');
+    d2 = viz_sv(nc2,[],'nopplots');
+
+    
+    %% Visualise difference between NASC values of each echo-integration for nc1 and nc2
+    echointCellHeight = 10; % standard IMOS setting, edit if need be. 
+    d1_NASC = 4.*pi.*1852.*1852.*10.^(d1.Sv./10)*echointCellHeight;
+    d2_NASC = 4.*pi.*1852.*1852.*10.^(d2.Sv./10)*echointCellHeight;       
+        
+    % title_string = {'Percentage difference in NASC'};
+    % HK - Commented below line as the difference plot seems to be more useful. 
+    % plot_data(d1, 100*(d1_NASC - d2_NASC)./d1_NASC, title_string,'minCval',-100, 'maxCval', 100);      
+    
+    % Visualise the difference in NASC     
+    title_string ={'Difference in NASC values for each echo-integration cell'};
+    plot_data(d1, d1_NASC - d2_NASC, title_string,'minCval',-50, 'maxCval', 50); % function calls viz_sv
+
+    %% Visualise the dB difference in Sv for each echo-integration cell
+    title_string = {'Difference in Sv (dB) for each echo-integration cell'};
+    %minsv=-3; maxsv = 3;
+    plot_data(d1, d1.Sv - d2.Sv, title_string,'minCval',-3, 'maxCval', 3);
+        
+    %% Plot Mean Sv for each ping axis interval and differences
+    % HK - Commented ploting against time, now plotting with interval
+    figure;
+    
+    subplot(311)
+%     plot(d1.time,d1.mean_Sv,'b')
+    plot(d1.mean_Sv,'b')
+    hold on; box on
+%     plot(d2.time,d2.mean_Sv,'r')
+    plot(d2.mean_Sv,'r')
+%     xlabel('Time')
+    ylabel('Sv (dB re 1 m^-^1)')
+    title('Mean Sv for each ping axis interval')
+    
+    p=get(0,'ScreenSize'); % HK to set figure size and avoid warning, used normal legend
+    set(gcf,'Position',[50 50 p(3)*0.75 p(4)*0.45])
+    % legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    legend(nc1,nc2)
+    
+    subplot(312)
+%     plot(d2.time,d1.mean_Sv - d2.mean_Sv,'b')
+    plot(d1.mean_Sv - d2.mean_Sv,'b')
+%     xlabel('Time')
+    ylabel('Sv (dB re 1 m^-^1)')
+    title('Difference in mean Sv for each ping axis interval')
+    
+    subplot(313)
+    plot(100*(d1.mean_Sv - d2.mean_Sv)./d1.mean_Sv,'.')
+    xlabel('Ping axis interval (km)')
+    ylabel('% difference in Mean Sv')
+    title('Percentage difference in mean Sv for each ping axis interval')    
+    
+    %% Plot mean NASC for each ping axis interval and differences
+    figure;
+    
+    subplot(311)
+%     plot(d1.time,d1.NASC,'b')
+    plot(d1.NASC,'b')
+    hold on; box on
+%     plot(d2.time,d2.NASC,'r')
+    plot(d2.NASC,'r')
+%     xlabel('Time')
+    ylabel('NASC (m^2 nmi^-^2)')
+    title('Mean NASC for each ping axis interval')
+    
+    set(gcf,'Position',[50 50 p(3)*0.75 p(4)*0.45])% HK to set figure size and avoid warning, used normal legend
+%     legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    legend(nc1,nc2)
+    
+    subplot(312)
+%     plot(d2.time,d1.NASC - d2.NASC,'b')
+    plot(d1.NASC - d2.NASC,'b')
+%     xlabel('Time')
+    ylabel('NASC (m^2 nmi^-^2)')
+    title('Difference in mean NASC for each ping axis interval')
+    
+    subplot(313)
+    plot(100*(d1.NASC - d2.NASC)./d1.NASC,'.')
+    xlabel('Ping axis interval (km)')
+    ylabel('% difference in NASC')
+    title('Percentage difference in mean NASC for each ping axis interval')
+    
+    %% Plot mean NASC raw for each ping axis interval and differences
+    figure;
+    
+    subplot(311)
+%     plot(d1.time,d1.NASCraw,'b')
+    plot(d1.NASCraw,'b')
+    hold on; box on
+%     plot(d2.time,d2.NASCraw,'r')
+    plot(d2.NASCraw,'r')
+%     xlabel('Time')
+    ylabel('NASC raw (m^2 nmi^-^2)')
+    title('Mean NASC raw for each ping axis interval')
+    
+    set(gcf,'Position',[50 50 p(3)*0.75 p(4)*0.45])% HK to set figure size and avoid warning, used normal legend
+%     legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    legend(nc1,nc2)
+    zoom(gcf, 'reset');
+        if max(d1.NASCraw) > 0
+            ylim([0, max(d1.NASC)*15]); % HK- Raw NASC has display issue. Restricting ylim to 15*max(processed NASC) 
+        end
+        
+    subplot(312)
+%     plot(d2.time,d1.NASCraw - d2.NASCraw,'b')
+    plot(d1.NASCraw - d2.NASCraw,'b')
+%     xlabel('Time')
+    ylabel('NASC raw (m^2 nmi^-^2)')
+    title('Difference in mean NASC raw for each ping axis interval')
+    
+    subplot(313)
+    plot(100*(d1.NASCraw - d2.NASCraw)./d1.NASCraw,'.')
+    xlabel('Ping axis interval (km)')
+    ylabel('% difference in NASC raw')
+    title('Percentage difference in mean NASC raw for each ping axis interval')
+    
+    %% Scatter plot between mean NASC for nc1 and nc2
+    figure; 
+    
+    avar = length(d1.NASC);
+    bvar = length(d2.NASC);
+    dvar = min([avar bvar]);
+    clear avar bvar        
+    scatter(d1.NASC(1:dvar),d2.NASC(1:dvar))
+    
+    hline = refline(1,0);
+    set(hline,'Color','r');
+    lline = lsline; % least squares fit line.     
+    
+    xlabel('NC1, NASC (m^2 nmi^-^2)')
+    ylabel('NC2, NASC (m^2 nmi^-^2)')
+    title('Scatter plot between mean NASC for NC1 and NC2')
+    box on
+    
+    %% Other plots - per interval    
+    % HK- commented. These figures are already there, except the percentage
+    % difference, which is now included in the previous figures.
+%     figure;
+%     plot(d1.NASC,'.')
+%     hold on; box on
+%     plot(d2.NASC,'ro')
+%     legend('First NetCDF file','Second NetCDf file')
+%     title('Per interval NASC value (m^2 nmi^-^2)')
+%     
+%     figure
+%     plot(d1.NASC - d2.NASC,'.')
+%     title('Difference in per interval NASC value')
+%  
+%     figure
+%     plot(100*(d1.NASC - d2.NASC)./d1.NASC,'.')
+%     title('Percentage difference in per interval NASC value')
+% 
+%     figure
+%     plot(d1.NASC,'.');
+%     hold on; box on
+%     plot(d2.NASC,'go');
+%     legend('First NetCDF file','Second NetCDf file')
+%     title('Per interval NASC value (m^2 nmi^-^2)')               
+    
+    %% Some summary stats    
+    mean_NASC1 = nmean(d1.NASC); mean_NASC2 = nmean(d2.NASC);
+    fprintf('\n Mean NASC NC1:%.1f, Mean NASC NC2: %.1f, percentage difference: %0.1f\n',mean_NASC1, mean_NASC2, 100*(mean_NASC1 - mean_NASC2)/mean_NASC1);
+    d1_Svperint = d1.mean_Sv; d1_Svperint(isinf(d1_Svperint))=[];
+    d2_Svperint = d2.mean_Sv; d2_Svperint(isinf(d2_Svperint))=[];
+    mean_Sv1 = nmean(d1_Svperint); mean_Sv2 = nmean(d2_Svperint);
+    fprintf('\n Mean Sv NC1:%.1f, Mean Sv NC2: %.1f, percentage difference: %0.1f\n',mean_Sv1, mean_Sv2, 100*(mean_Sv1 - mean_Sv2)/mean_Sv1);
+    
+end
+%%    
+function plot_data(d1, mtrx, title_string,varargin)    
+    figHandles = findobj('Type','figure');    numfigures1 = length(figHandles); % current number of figures
+    viz_sv(d1, mtrx); 
+    figHandles = findobj('Type','figure');    numfigures2 = length(figHandles); % current number of figures
+    newfigures = numfigures2 - numfigures1;        
+    figHandlesSorted = sortfighandlearray(figHandles,'descend'); % call to function    
+    for i=1:newfigures
+        cf = figHandlesSorted(i);
+        ca = gca(cf);
+        ca.Title.String(1) = title_string;
+        for i=1:length(varargin)
+            if isequal(varargin{i}, 'minCval')
+                minCval = varargin{i+1};
+            end
+            if isequal(varargin{i}, 'maxCval')
+                maxCval = varargin{i+1};
+            end
+        end
+        ca.CLim = [minCval maxCval];        
+    end               
+end
+%% Calculate mean ignoring NaN values
+function nmean = nmean(data)
+    % calculate mean ignoring NaN values
+        nan = isnan(data);
+        data(nan) = 0;
+        count = sum(~nan);
+        count(count==0) = NaN;      % prevent divide by 0
+        nmean = sum(data)./count;
+end
+%%
+function [hFigsSorted] = sortfighandlearray(hFigs,varargin)
+    %SORTFIGHANDLEARRAY Due to changes in Matlab 2014b graphics system, figure
+    %handles are no longer doubles, but rather an graphics object. Hence, these
+    %objects can not be sorted directly. This function accepts an array of
+    %figure handles, and returns an array of similar length, with figure
+    %handles sorted with respect to their numeric property 'Number'.
+    %
+    % *** Inputs:
+    %   hFigs - Figure handles array. 
+    %           An array who holds the handles to a series of figures.
+    %
+    %   varargin{1} - String.
+    %           Should match 'ascend' or 'descend', depending on  how the
+    %           figure handles should be sorted. By default, figure handles are
+    %           sorted in an ascending order.
+    %
+    % *** Outputs:
+    %   hFigSorted- Figure handles array.
+    %           Figure handles are sorted with respect to their property
+    %           'Number'.
+    % From Matlab Central. Author Andreas Berg
+    % ------------------------------------------------------------------------
+
+    narginchk(1,2)
+
+    if nargin == 1
+       sortStr = 'ascend';
+    else
+       if strcmpi(varargin{1},'ascend') || strcmpi(varargin{1},'descend')
+          sortStr = varargin{1};
+       else
+          error('Bad input. 2nd input argument should match string "ascend" or "descend"')
+       end
+    end
+
+    % Allocate output
+    nFigs = length(hFigs);
+    hFigsSorted = gobjects(nFigs,1);
+
+    % Capture an array of figure numbers
+    figNumbersArray = [hFigs.Number];
+
+    % Sort and find indices of the sorted figures
+    [~,I] = sort(figNumbersArray,sortStr);
+
+    % Assemble output array
+    hFigsSorted(1:nFigs) = hFigs(I);
+
+end
+%% To avoid crashing if Statistics and Machine Learning Toolbox is not licensed
+function h = refline(varargin)
+%REFLINE Add a reference line to a plot.
+%   REFLINE(SLOPE,INTERCEPT) adds a line with the given SLOPE and
+%   INTERCEPT to the current figure.
+%
+%   REFLINE(SLOPE) where SLOPE is a two element vector adds the line
+%        y = SLOPE(2) + SLOPE(1)*x 
+%   to the figure. (See POLYFIT.)
+%
+%   H = REFLINE(SLOPE,INTERCEPT) returns the handle to the line object
+%   in H.
+%    
+%   H = REFLINE(AX,...) plots into AX instead of GCA.
+%
+%   REFLINE with no input arguments superimposes the least squares line on 
+%   the plot based on points recognized by LSLINE.
+%
+%   See also POLYFIT, POLYVAL, LSLINE.   
+
+%   Copyright 1993-2014 The MathWorks, Inc. 
+
+[ax,args,nargin] = axescheck(varargin{:});
+
+if nargin >2
+    error(message('MATLAB:TooManyInputs'));
+end
+if isempty(ax)
+    ax = gca;
+end
+
+if nargin == 0
+   hh = lsline(ax);
+   if nargout >0
+       h = hh;
+   end
+   return;
+end
+
+if nargin == 1
+   if max(size(args{:})) == 2
+      slope = args{1}(1);
+      intercept = args{1}(2);
+   else
+      slope = args{1};
+      intercept = 0;
+   end
+end
+
+if nargin == 2
+    slope = args{1};
+    intercept=args{2};
+end
+
+xlimits = get(ax,'Xlim');
+ylimits = get(ax,'Ylim');
+
+np = get(ancestor(ax,'Figure'),'NextPlot');
+set(ancestor(ax,'Figure'),'NextPlot','add');
+
+if all(isfinite(xlimits))
+    xdat = xlimits;
+else
+    xdat = ax.DataSpace.XLim;
+end
+ydat = intercept + slope.*xdat;
+maxy = max(ydat);
+miny = min(ydat);
+
+if maxy > ylimits(2)
+  if miny < ylimits(1)
+     set(ax,'YLim',[miny maxy]);
+  else
+     set(ax,'YLim',[ylimits(1) maxy]);
+  end
+else
+  if miny < ylimits(1)
+     set(ax,'YLim',[miny ylimits(2)]);
+  end
+end
+
+if nargout == 1
+   h = line(xdat,ydat,'Parent',ax);
+   set(h,'LineStyle','-');
+else
+   hh = line(xdat,ydat,'Parent',ax);
+   set(hh,'LineStyle','-');
+end
+
+set(ancestor(ax,'Figure'),'NextPlot',np);
+
+end
+%% To avoid crashing if Statistics and Machine Learning Toolbox is not licensed
+function h = lsline(AX)
+% LSLINE Add least-squares fit line to scatter plot.
+%   LSLINE superimposes the least squares line in the current axes
+%   for plots made using PLOT, LINE, SCATTER, or any plot based on
+%   these functions.  Any line objects with LineStyles '-', '--', 
+%   or '.-' are ignored.
+% 
+%   LSLINE(AX) plots into AX instead of GCA.
+% 
+%   H = LSLINE(...) returns the handle to the line object(s) in H.
+%   
+%   See also POLYFIT, POLYVAL, REFLINE.
+
+%   Copyright 1993-2014 The MathWorks, Inc.
+
+
+% Find any line objects that are descendents of the axes.
+if nargin==0
+    AX = gca;
+end
+AxCh = get(AX,'Children');
+lh = findobj(AxCh,'Type','line');
+% Ignore certain continuous lines.
+if ~isempty(lh)
+    style = get(lh,'LineStyle');
+    if ~iscell(style)
+        style = cellstr(style);
+    end
+    ignore = strcmp('-',style) | strcmp('--',style) | strcmp('-.',style);
+    lh(ignore) = [];
+end
+
+% Find hggroups that are immediate children of the axes, such as plots made
+% using SCATTER.
+hgh = findobj(AxCh,'flat','Type','scatter');
+
+% Ignore hggroups that don't expose both XData and YData.
+if ~isempty(hgh)
+    ignore = ~isprop(hgh,'XData') | ~isprop(hgh,'YData');
+    hgh(ignore) = [];
+end
+
+hh = [lh;hgh];
+numlines = length(hh);
+if numlines == 0
+    warning(message('stats:lsline:NoLinesFound'));
+    hlslines = [];
+else
+    for k = 1:length(hh)
+        if isprop(hh(k),'ZData')
+            zdata = get(hh(k),'ZData');
+            if ~isempty(zdata) && ~all(zdata(:)==0)
+                warning(message('stats:lsline:ZIgnored'));
+            end
+        end
+        % Extract data from the points we want to fit.
+        xdat = get(hh(k),'XData'); xdat = xdat(:);
+        ydat = get(hh(k),'YData'); ydat = ydat(:);
+        ok = ~(isnan(xdat) | isnan(ydat));
+        if isprop(hh(k),'Color')
+            datacolor = get(hh(k),'Color');
+        else
+            datacolor = [.75 .75 .75]; % Light Gray
+        end
+        % Fit the points and plot the line.
+        beta = polyfit(xdat(ok,:),ydat(ok,:),1);
+        hlslines(k) = refline(AX,beta);
+        set(hlslines(k),'Color',datacolor);
+    end
+    set(hlslines,'Tag','lsline');
+end
+
+if nargout == 1
+    h = hlslines;
+end
+end

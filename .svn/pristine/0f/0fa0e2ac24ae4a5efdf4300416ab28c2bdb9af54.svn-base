@@ -1,0 +1,191 @@
+function compare_nc(nc1, nc2)
+    %
+    % function to compare Sv data in two netCDF files
+    %
+    % precondition
+    % requires viz_sv funtion
+    % uses Andreas Berg's sort figures function at end of script
+    % tim Ryan 18/03/2016
+    % some additional code hacked from code Sophie Fielding (BAS) kindly
+    % provided. 
+    % load the netcdf files using viz_sv function
+
+    d1 = viz_sv(nc1,[],'nopplots');
+    d2 = viz_sv(nc2,[],'nopplots');
+
+    
+    %% visualise the percentage difference between NASC values for each cell for nc1 and nc2
+    echointCellHeight = 10; % standard IMOS setting, edit if need be. 
+    d1_NASC = 4.*pi.*1852.*1852.*10.^(d1.Sv./10)*echointCellHeight;
+    d2_NASC = 4.*pi.*1852.*1852.*10.^(d2.Sv./10)*echointCellHeight;       
+        
+    title_string = {'Percent difference in NASC'};
+    plot_data(d1, 100*(d1_NASC - d2_NASC)./d1_NASC, title_string,'minCval',-100, 'maxCval', 100);      
+    %% visualise the difference in NASC     
+    title_string = {'% difference in NASC in m^2 n.mi^2'};
+    plot_data(d1, d1_NASC - d2_NASC, title_string,'minCval',-50, 'maxCval', 50); % function calls viz_sv
+
+    %% visualise the dB difference
+        title_string = {'Difference in Sv (dB)'};
+        %minsv=-3; maxsv = 3;
+        plot_data(d1, d1.Sv - d2.Sv, title_string,'minCval',-3, 'maxCval', 3);
+        
+    %% plot mean_Sv 
+    subplot(211)
+    plot(d1.time,d1.mean_Sv,'b')
+    hold on
+    plot(d2.time,d2.mean_Sv,'r')
+    xlabel('Time')
+    ylabel('Sv (dB)')
+    title('Mean Sv')
+    legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    subplot(212)
+    plot(d2.time,d1.mean_Sv - d2.mean_Sv,'r')
+    
+    %% plot NASC
+    subplot(211)
+    plot(d1.time,d1.NASC,'b')
+    hold on
+    plot(d2.time,d2.NASC,'r')
+    xlabel('Time')
+    ylabel('NASC')
+    title('NASC')
+    legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    subplot(212)
+    plot(d2.time,d1.NASC - d2.NASC,'r')
+    
+    
+     %% plot NASC raw - should be identical
+    subplot(211)
+    plot(d1.time,d1.NASCraw,'b')
+    hold on
+    plot(d2.time,d2.NASCraw,'r')
+    xlabel('Time')
+    ylabel('NASC')
+    title('NASC raw')
+    legend(strrep(nc1,'_',' '), strrep(nc2,'_',' ')); % take out any underscores from legend
+    subplot(212)
+    plot(d2.time,d1.NASCraw - d2.NASCraw,'r')
+    
+     % Plot scatter plots
+    figure
+    avar = length(d1.NASC);
+    bvar = length(d2.NASC);
+    dvar = min([avar bvar]);
+    clear avar bvar        
+    scatter(d1.NASC(1:dvar),d2.NASC(1:dvar))
+    hline = refline(1,0);
+    set(hline,'Color','r');
+    lline = lsline; % least squares fit line.     
+    xlabel('NC1, NASC m^2 nmi^2')
+    ylabel('NC2, NASC m^2 nmi^2')
+    
+    
+    %% other plots - per interval    
+    figure;
+    plot(d1.NASC,'.')
+    hold on
+    plot(d2.NASC,'ro')
+    legend('First netCDF file','Second netCDf file')
+    title('per interval NASC value (m^2 n.mi^2)')
+    
+    figure
+    plot(d1.NASC - d2.NASC,'.')
+    title('difference in per interval NASC value')
+ 
+    figure
+    plot(100*(d1.NASC - d2.NASC)./d1.NASC,'.')
+    title('percentage difference in per interval NASC value')
+
+    figure
+    plot(d1.NASC,'.');
+    hold on
+    plot(d2.NASC,'go');
+    legend('First netCDF file','Second netCDf file')
+    title('per interval NASC value (m^2 n.mi^2)')               
+    
+    %% some stats    
+    mean_NASC1 = mean(d1.NASC); mean_NASC2 = mean(d2.NASC);
+    fprintf('Mean NASC NC1:%.1f Mean NASC NC2: %.1f, percentage difference: %0.1f\n',mean_NASC1, mean_NASC2, 100*(mean_NASC1 - mean_NASC2)/mean_NASC1);
+    d1_Svperint = d1.mean_Sv; d1_Svperint(isinf(d1_Svperint))=[];
+    d2_Svperint = d2.mean_Sv; d2_Svperint(isinf(d2_Svperint))=[];
+    mean_Sv1 = mean(d1_Svperint); mean_Sv2 = mean(d2_Svperint);
+    fprintf('Mean Sv NC1:%.1f Mean Sv NC2: %.1f\n',mean_Sv1, mean_Sv2);
+    
+end
+    
+function plot_data(d1, mtrx, title_string,varargin)    
+    figHandles = findobj('Type','figure');    numfigures1 = length(figHandles); % current number of figures
+    viz_sv(d1, mtrx); 
+    figHandles = findobj('Type','figure');    numfigures2 = length(figHandles); % current number of figures
+    newfigures = numfigures2 - numfigures1;        
+    figHandlesSorted = sortfighandlearray(figHandles,'descend'); % call to function    
+    for i=1:newfigures
+        cf = figHandlesSorted(i);
+        ca = gca(cf)
+        ca.Title.String(1) = title_string;
+        for i=1:length(varargin)
+            if isequal(varargin{i}, 'minCval')
+                minCval = varargin{i+1};
+            end
+            if isequal(varargin{i}, 'maxCval')
+                maxCval = varargin{i+1};
+            end
+        end
+        ca.CLim = [minCval maxCval];        
+    end               
+end
+    
+
+
+function [hFigsSorted] = sortfighandlearray(hFigs,varargin)
+    %SORTFIGHANDLEARRAY Due to changes in Matlab 2014b graphics system, figure
+    %handles are no longer doubles, but rather an graphics object. Hence, these
+    %objects can not be sorted directly. This function accepts an array of
+    %figure handles, and returns an array of similar length, with figure
+    %handles sorted with respect to their numeric property 'Number'.
+    %
+    % *** Inputs:
+    %   hFigs - Figure handles array. 
+    %           An array who holds the handles to a series of figures.
+    %
+    %   varargin{1} - String.
+    %           Should match 'ascend' or 'descend', depending on  how the
+    %           figure handles should be sorted. By default, figure handles are
+    %           sorted in an ascending order.
+    %
+    % *** Outputs:
+    %   hFigSorted- Figure handles array.
+    %           Figure handles are sorted with respect to their property
+    %           'Number'.
+    % From Matlab Central. Author Andreas Berg
+    % ------------------------------------------------------------------------
+
+    narginchk(1,2)
+
+    if nargin == 1
+       sortStr = 'ascend';
+    else
+       if strcmpi(varargin{1},'ascend') || strcmpi(varargin{1},'descend')
+          sortStr = varargin{1};
+       else
+          error('Bad input. 2nd input argument should match string "ascend" or "descend"')
+       end
+    end
+
+    % Allocate output
+    nFigs = length(hFigs);
+    hFigsSorted = gobjects(nFigs,1);
+
+    % Capture an array of figure numbers
+    figNumbersArray = [hFigs.Number];
+
+    % Sort and find indices of the sorted figures
+    [~,I] = sort(figNumbersArray,sortStr);
+
+    % Assemble output array
+    hFigsSorted(1:nFigs) = hFigs(I);
+
+end
+
+

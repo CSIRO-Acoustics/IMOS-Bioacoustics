@@ -1,0 +1,14 @@
+function CARSpath
+% This function tries to include all the path items needed to be able to
+% read CARS data. 
+
+if isempty(which('get_clim_profs'))
+    if exist('/home/eez_data/software/matlab/', 'file') == 7
+        cars_path = '/home/eez_data/software/matlab/';
+    elseif exist('\\fstas2-hba\CSIRO\CMAR\Project1\eez_data\software\matlab', 'file') == 7
+        cars_path = '\\fstas2-hba\CSIRO\CMAR\Project1\eez_data\software\matlab';
+    else
+        error('Can''t find get_clim_profs. Please map a drive to \\fstas2-hba\CSIRO\CMAR\Project1')
+    end
+    addpath(cars_path);
+end

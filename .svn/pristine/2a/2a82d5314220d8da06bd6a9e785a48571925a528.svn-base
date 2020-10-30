@@ -1,0 +1,12 @@
+TEMP = 2*stdDev
+PSAL = 2*stdDev
+PRES = 2*stdDev
+PRES_REL = 2*stdDev
+DEPTH = 2*stdDev
+DOXY = 2*stdDev
+DOX1 = 2*stdDev
+DOX2 = 2*stdDev
+UCUR = 2*stdDev
+VCUR = 2*stdDev
+WCUR = 2*stdDev
+CSPD = 2*stdDev

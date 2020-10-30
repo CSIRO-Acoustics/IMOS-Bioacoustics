@@ -1,0 +1,44 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	98.02.06.05.46.07;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@Full Contents List for /home/eez_data/software/matlab
+
+User callable functions and scripts are listed in "Contents.m"
+
+Files which support the above programs, but are not directly user-callable:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Called by Climatology access scripts
+   do_blanking
+
+Used by ctd_select:
+   ctd_select.mat
+   ctd_sel_util.m
+   dispsel.m
+   dispsel.mat
+   dispsel_util.m
+   time2doy.m
+   time2greg.m
+
+Called by hydro access functions:
+   getNODC_onev
+   getNODC_arg
+@

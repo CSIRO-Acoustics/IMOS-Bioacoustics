@@ -1,0 +1,877 @@
+function sample_data = read_echointegration( directory, ev_files, control, progress )
+% read_echointegration reads the .csv files exported from echoview and
+% generates an IMOS sample_data structure.
+%
+% This function replaces merge3 and echoviewParse in the old system and
+% draws heavily on the code from each.
+%
+% Inputs:
+%   directory - directory containing the input .csv files, the user will be
+%   asked to provide a value if it not provided or empty.
+%   control - control structure containing the following fields:
+%           TODO
+%
+% Outputs:
+%   sample_data - IMOS data structure containing the data extracted from
+%   the csv files.
+%
+% The .csv file must have at least all of the following columns:
+% Samples
+% Layer 
+% Lat_M 
+% Layer_depth_min 
+% Layer_depth_max 
+% Lat_M 
+% Lon_M 
+% Date_M 
+% Time_M 
+% Height_mean 
+% Depth_mean 
+% EV_filename 
+% Program_version 
+% Sv_mean 
+
+if nargin < 3 
+    progress = [];
+end
+
+% sample_data.dimensions to create
+DIMENSIONS = { 'TIME', 'DEPTH', 'CHANNEL', 'EV_filename', 'echoview_version'};
+TIME_D = 1; DEPTH_D = 2;    CHANNEL_D = 3; EV_FILE_D = 4;   EV_VERSION_D = 5;
+
+% sample_data.variables to create
+VARIABLES = { ...
+    'LATITUDE',         TIME_D ; ...
+    'LONGITUDE',        TIME_D; ...
+    'frequency',        CHANNEL_D; ...
+    'mean_height',      [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'mean_depth',       [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv',               [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_unfilt',        [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_pcnt_good',     [ TIME_D DEPTH_D CHANNEL_D]; ...
+                                                     ...
+    'Sv_sd',            [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_skew',          [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_kurt',          [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_unfilt_sd',     [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_unfilt_skew',   [ TIME_D DEPTH_D CHANNEL_D]; ...
+    'Sv_unfilt_kurt',   [ TIME_D DEPTH_D CHANNEL_D]; ...
+    };
+LAT_V = 1;  LON_V = 2;  FREQ_V = 3;             HEIGHT_V = 4;   DEPTH_V = 5;
+SV_V = 6;               SV_UNFILT_V = 7;        SV_PCNT_GOOD_V = 8;
+SV_SD_V = 9;            SV_SKEW_V = 10;         SV_KURT_V = 11;
+SV_UNFILT_SD_V = 12;    SV_UNFILT_SKEW_V = 13;  SV_UNFILT_KURT_V = 14;
+
+dims = length(DIMENSIONS);
+if control.extended
+    vars = length(VARIABLES);
+else
+    vars = SV_PCNT_GOOD_V;
+end
+
+% Ask the user for the directory to use
+
+if isempty(directory)
+    directory = uigetdir('q:\Processed_data');
+end
+
+% ensure the IMOS toolbox is in the Path - needed for parseNetCDFTemplate
+% this should not be necessary if called from process_BASOOP
+
+if isempty(which('imosToolbox'))
+    addpath(genpath(fileparts(mfilename('fullpath'))));
+end
+
+start = tic;
+
+% create sample_data
+
+sample_data.site_code='SOOP-BA';
+sample_data.meta.level=2;
+
+sample_data.meta.instrument_make              = 'Simrad';
+sample_data.meta.instrument_model             = 'ES60';
+sample_data.meta.instrument_serial_no         = '';
+sample_data.meta.instrument_sample_interval   = NaN;
+sample_data.meta.timezone                     = 'UTC';
+sample_data.meta.site.SiteName                = 'UNKNOWN';
+
+for k=1:dims;
+    sample_data.dimensions{k}.name = DIMENSIONS{k};
+    sample_data.dimensions{k}.data = [];
+end
+
+for k=1:vars;
+    sample_data.variables{k}.name = VARIABLES{k,1};
+    sample_data.variables{k}.dimensions = VARIABLES{k,2};
+    sample_data.variables{k}.data = [];
+end
+
+sample_data.dimensions{CHANNEL_D}.data = control.channel;
+sample_data.variables{FREQ_V}.data = control.frequency;
+sample_data.meta.depth = control.frequency;
+
+% Create list of *_Final_38kHz_cleaned.csv files
+
+% Ryan asked for the ev_files list to be used for read_echintegration then
+% changed his mind back to all files in the directory get included.
+% To restrict the files to those selected by the user move the next end to
+% the bottom of this block.
+if isempty(ev_files)
+end
+    
+    cleanvar1 = sprintf(control.export_final_variable_name, control.channel{1});
+    sections = dir(fullfile(directory, [ '*' cleanvar1 '.csv']));
+    if isempty(sections)
+        error('*%s.csv not found in %s', cleanvar1, directory);
+    end
+    cv1_files = {sections.name};
+    tail = length(cleanvar1)+5;
+    ev_files = cellfun(@(x) x(1:end-tail),cv1_files, 'UniformOutput',false);
+
+
+% read each file in order
+
+intrval = 2;
+layer = 3;
+layer_min = 0;
+layer_max = 0;
+samples = 0;
+latitude = 0;
+longitude = 0;
+date = 0;
+time = 0;
+mean_height = 0;
+mean_depth = 0;
+ev_file = 0;
+ev_version = 0;
+
+sv_mean = 0;
+sv_sd = 0;
+sv_skew = 0;
+sv_kurt = 0;
+
+filecnt = 0;        % number of distinct EV files
+linelast = [];
+lastint = 0;        % last interval processed
+have_intervals = [];
+
+for f = 1:length(ev_files)
+    [~, prefix] = fileparts(ev_files{f});
+    
+    for channel = 1:length(control.channel)
+        
+        cleanvar = sprintf(control.export_final_variable_name, control.channel{channel});
+        rawvar   = sprintf(control.export_reference_variable_name, control.channel{channel});
+        countvar = sprintf(control.export_rejectdata_variable_name, control.channel{channel});
+                
+        cleanfile = fullfile(directory, [ prefix '_' cleanvar '.csv' ]);
+        rawfile   = fullfile(directory, [ prefix '_' rawvar   '.csv' ]);
+        countfile = fullfile(directory, [ prefix '_' countvar '.csv' ]);
+        
+        if ~isempty(progress)
+            progress(control, 'read echointegration' , f, length(ev_files), ...
+                start, [prefix '_' cleanvar]); %#ok<NOEFF>
+        end
+        
+        if exist(rawfile,'file') ~= 2
+            rawfile = fullfile(directory, [prefix 'HAC Sv 38 kHz.csv']); % support for deprecated names
+        end
+        
+        clean = fopen(cleanfile, 'rt');
+        raw   = fopen(rawfile, 'rt');
+        count = fopen(countfile, 'rt');
+        
+        if clean == -1 || raw == -1 || count == -1
+            if clean == -1
+                if exist(cleanfile, 'file')
+                    error('Unable to open file %s', cleanfile);
+                else
+                    error('CSV file does not exist: %s', cleanfile);
+                end
+            end
+            if count == -1
+                if exist(countfile, 'file')
+                    error('Unable to open file %s', countfile);
+                else
+                    error('CSV file does not exist: %s', countfile);
+                end
+            end
+            if raw == -1
+                if exist(rawfile, 'file')
+                    error('Unable to open file %s', rawfile);
+                else
+                    error('CSV file does not exist: %s', rawfile);
+                end
+            end
+            error(['Can''t open csv file for ' prefix ' ' control.channel{channel} ' in ' directory]);
+        end
+        
+        linec = fgetl(clean);
+        liner = fgetl(raw);
+        linet = fgetl(count);
+        
+        linec = trim(linec);
+        liner = trim(liner);
+        linet = trim(linet);
+        
+        if isempty(linec)
+            fprintf ('clean: %s\n', cleanfile);
+            fprintf ('raw:   %s\n', rawfile);
+            fprintf ('count: %s\n', countfile);
+            
+            error('CSV file header missing')
+        end
+        
+        if (~strcmp(linec, liner) || ~strcmp(linec, linet))
+            fprintf ('clean: %s\n', cleanfile);
+            fprintf ('raw:   %s\n', rawfile);
+            fprintf ('count: %s\n', countfile);
+            
+            error 'Header line mismatch';
+        end
+        
+        if (~isempty(linelast) && ~strcmp(linelast,linec))
+            fprintf ('clean: %s\n', cleanfile);
+            fprintf ('raw:   %s\n', rawfile);
+            fprintf ('count: %s\n', countfile);
+            
+            error('Header line differs from previous section %s', prefix )
+        end
+        
+        % get columns from header
+        
+        fields = strtrim(regexp(liner, ',', 'split'));
+        
+        
+        
+        for i = 1:length(fields)
+            if (strcmp(fields{i},'Interval'))
+                intrval = i;
+            elseif (strcmp(fields{i},'Layer'))
+                layer = i;
+            elseif (strcmp(fields{i},'Layer_depth_min'))
+                layer_min = i;
+            elseif (strcmp(fields{i},'Layer_depth_max'))
+                layer_max = i;
+            elseif (strcmp(fields{i},'Samples'))
+                samples = i;
+            elseif (strcmp(fields{i},'Good_samples'))
+                samples = i;
+            elseif (strcmp(fields{i},'Lat_M'))
+                latitude = i;
+            elseif (strcmp(fields{i},'Lon_M'))
+                longitude = i;
+            elseif (strcmp(fields{i},'Date_M'))
+                date = i;
+            elseif (strcmp(fields{i},'Time_M'))
+                time = i;
+            elseif (strcmp(fields{i},'Height_mean'))
+                mean_height = i;
+            elseif (strcmp(fields{i},'Depth_mean'))
+                mean_depth = i;
+            elseif (strcmp(fields{i},'EV_filename'))
+                ev_file = i;
+            elseif (strcmp(fields{i},'Program_version'))
+                ev_version = i;
+            elseif (strcmp(fields{i},'Sv_mean'))
+                sv_mean = i;
+            elseif (strcmp(fields{i},'Standard_deviation'))
+                sv_sd = i;
+            elseif (strcmp(fields{i},'Skewness'))
+                sv_skew = i;
+            elseif (strcmp(fields{i},'Kurtosis'))
+                sv_kurt = i;
+            end
+        end
+        
+        if (samples == 0) ;     error('Samples column not found in %s', rawfile) ;          end
+        if (layer == 0) ;       error('Layer column not found in %s', rawfile) ;            end
+        if (layer_min == 0) ;   error('Layer_depth_min column not found in %s', rawfile) ;  end
+        if (layer_max == 0) ;   error('Layer_depth_max column not found in %s', rawfile) ;  end
+        if (latitude == 0) ;    error('Lat_M column not found in %s', rawfile) ;            end
+        if (longitude == 0) ;   error('Lon_M column not found in %s', rawfile) ;            end
+        if (date == 0) ;        error('Date_M column not found in %s', rawfile) ;           end
+        if (time == 0) ;        error('Time_M column not found in %s', rawfile) ;           end
+        if (mean_height == 0) ; error('Height_mean column not found in %s', rawfile) ;      end
+        if (mean_depth == 0) ;  error('Depth_mean column not found in %s', rawfile) ;       end
+        if (ev_file == 0) ;     error('EV_filename column not found in %s', rawfile) ;      end
+        if (ev_version == 0) ;  error('Program_version column not found in %s', rawfile) ;  end
+        if (sv_mean == 0) ;     error('Sv_mean column not found in %s', rawfile) ;          end
+        if control.extended
+        if (sv_sd == 0) ;       error('Standard_deviation column not found in %s', rawfile) ; end
+        if (sv_skew == 0) ;     error('Skewness column not found in %s', rawfile) ;         end
+        if (sv_kurt == 0) ;     error('Kurtosis column not found in %s', rawfile) ;         end
+        end
+        
+        % read files into memory and sort
+        
+        cdata = textscan(clean,'%s','Delimiter','');
+        [cdata, intervals, layers] = nsort(cdata{1});
+        rdata = textscan(raw,'%s','Delimiter','');
+        rdata = nsort(rdata{1});
+        tdata = textscan(count,'%s','Delimiter','');
+        tdata = nsort(tdata{1});
+        
+        fclose(clean);
+        fclose(raw);
+        fclose(count);
+        
+        cleanline=0;
+        rawline=0;
+        countline=0;
+        
+        if channel == 1
+            % preallocate sufficient space for data from this file
+            % note: intervals may start at 0 so intx(1) is interval 0
+            mxint=max(intervals + 1);
+            mnint=min(intervals + 1);
+            intx = zeros(mxint,1);
+            intx(mnint:mxint) = 1:mxint-mnint +1;
+            
+            
+            if lastint > mxint
+                error('Interval sequence out of order (check .gps.csv in .ev file): previous %d current %d - %d in %s', ...
+                    lastint, mnint, mxint, cleanfile);
+            end
+            
+            if mnint > lastint && lastint > 0
+                warning('ITEGRATION:GAP', 'Gap in integration intervals between %d and %d at %s', ...
+                    lastint, mnint, cleanfile)
+            end
+            
+            if lastint > mnint
+                pen=lastint;      % keep penultimate record (but replace last one)
+                drop=intx(pen);
+                intx(1:pen) = 0;
+                intx(intx > 0) = intx(intx>0) - drop;   % start newdata from 1
+                if control.verbosity > 1
+                    fprintf('Skipping intervals %d - %d, processing intervals %d - %d\n', ...
+                        mnint, pen - 1,lastint,mxint);
+                end
+            end
+            
+            if isempty(sample_data.dimensions{DEPTH_D}.data)
+                sample_data.dimensions{DEPTH_D}.data = nan(size(layers));
+            end
+            
+            newsize=[ max(intx) max(layers) length(control.channel) filecnt ];
+            sample_data.dimensions{TIME_D}.newdata = nan(max(intx),1);
+            for k=1:vars
+                sample_data.variables{k}.newdata = ...
+                    nan([newsize(sample_data.variables{k}.dimensions) 1]);
+            end
+            new_intervals = nan(1,newsize(TIME_D));
+        else
+            mxint = max(intervals + 1);
+            grow = mxint - length(intx);
+            if grow > 0
+                % channel has more intervals than previous channels
+                if control.verbosity > 1
+                    fprintf('Channel %d has %d extra intervals\n', channel, grow);
+                end
+                intx(end+1:mxint) = intx(end)+1:intx(end)+grow;
+                growsize = newsize;
+                growsize(TIME_D) = grow;
+                newsize(TIME_D) = newsize(TIME_D) + grow;
+                sample_data.dimensions{TIME_D}.newdata(end+1:end+grow) = NaN;
+                for k=1:vars
+                    gdim = find(sample_data.variables{k}.dimensions == TIME_D,1);
+                    if ~isempty(gdim)
+                        growdata = nan([growsize(sample_data.variables{k}.dimensions) 1]);
+                        sample_data.variables{k}.newdata = cat(gdim, ...
+                            sample_data.variables{k}.newdata, growdata);
+                    end
+                end
+                new_intervals = [new_intervals nan(1,grow)];      %#ok<AGROW>
+            end
+            grow = max(layers) - newsize(DEPTH_D);
+            if grow > 0
+                % channel has more layers than previous channels
+                if control.verbosity > 1
+                    fprintf('Channel %d has %d extra layers\n', channel, grow);
+                end
+                growsize = newsize;
+                growsize(DEPTH_D) = grow;
+                newsize(DEPTH_D) = newsize(DEPTH_D) + grow;
+                sample_data.dimensions{DEPTH_D}.data(end+1:end+grow) = NaN;
+                for k=1:vars
+                    gdim = find(sample_data.variables{k}.dimensions == DEPTH_D,1);
+                    if ~isempty(gdim)
+                        growdata = nan([growsize(sample_data.variables{k}.dimensions) 1]);
+                        sample_data.variables{k}.newdata = cat(gdim, ...
+                            sample_data.variables{k}.newdata, growdata);
+                    end
+                end
+            end         
+        end
+        
+        % process data
+        while cleanline < length(cdata)
+            cleanline = cleanline+1;
+            rawline = rawline+1;
+            countline = countline +1;
+            
+            linec = cdata{cleanline};
+            liner = rdata{rawline};
+            linet = tdata{countline};
+            cfields = regexp(linec, ',', 'split');
+            rfields = regexp(liner, ',', 'split');
+            tfields = regexp(linet, ',', 'split');
+            
+            % skip lines with no position
+            lat = strtrim(cfields{latitude});
+            if strcmp(lat(1:3), '999')
+                rawline = rawline-1;
+                countline = countline-1;
+                continue;
+            end
+            
+            cinterval = str2double(cfields{intrval});
+            clayer = str2double(cfields{layer});
+            ninterval = intx(cinterval + 1);
+            
+            rinterval = str2double(rfields{intrval});
+            rlayer = str2double(rfields{layer});
+            
+            % skip raw data without clean data
+            while rawline < length(rdata) && ...
+                    (cinterval > rinterval || clayer > rlayer)
+                rawline = rawline+1;
+                rfields = regexp(rdata{rawline}, ',', 'split');
+                rinterval = str2double(rfields{intrval});
+                rlayer = str2double(rfields{layer});
+            end
+            
+            tinterval = str2double(tfields{intrval});
+            tlayer = str2double(tfields{layer});
+            
+            % skip count data without clean data
+            while countline < length(tdata) &&  ...
+                    (cinterval > tinterval || clayer > tlayer)
+                countline = countline +1;
+                tfields = regexp(tdata{countline}, ',', 'split');
+                tinterval = str2double(tfields{intrval});
+                tlayer = str2double(tfields{layer});
+            end
+            
+            if cinterval ~= rinterval || clayer ~= rlayer || ...
+                    cinterval ~= tinterval || clayer ~= tlayer
+                fprintf ('clean: %s\n', cleanfile);
+                fprintf ('raw:   %s\n', rawfile);
+                fprintf ('count: %s\n', countfile);
+                
+                error('file synchronisation lost at interval: %d %d %d layer: %d %d %d', ...
+                    cinterval, rinterval, tinterval, clayer, rlayer, tlayer);
+            end
+            
+            % percent good
+            cleandata = str2double(tfields{samples});
+            if (cleandata > 0)
+                rawdata = str2double(rfields{samples});
+                pctgood = floor(100 * cleandata / rawdata);
+            else
+                pctgood = 0;
+            end
+            
+            % layer depth
+            if (layer_min > 0 && layer_max > 0)
+                layer_depth = (str2double(cfields{layer_min}) + ...
+                    str2double(cfields{layer_max})) / 2;
+            else
+                layer_depth = clayer * 10 - 5;
+            end
+            
+            % skip data which doesn't satisfy threshold conditions
+            if (pctgood < control.min_good) || (layer_depth > control.max_depth)
+                continue;
+            end
+            
+            % convert to linear
+            csv = str2double(cfields{sv_mean});
+            if csv == 0
+                csv = 9999;
+            end
+            if csv ~= 9999
+                csv = 10 ^ (csv / 10);
+            end
+            
+            rsv = str2double(rfields{sv_mean});
+            if rsv == 0
+                rsv = 9999;
+            end
+            if rsv ~= 9999
+                rsv = 10 ^ (rsv / 10);
+            end
+            
+            found=0;
+            ev_filename = strtrim(cfields{ev_file});
+            if ~isempty(ev_filename) && ev_filename(1) == '"' && ev_filename(end) == '"'
+                ev_filename([1 end]) = [];
+            end
+            for i=length(sample_data.dimensions{EV_FILE_D}.data):-1:1
+                if strcmp(ev_filename,sample_data.dimensions{EV_FILE_D}.data(i))
+                    found=1;
+                    break;
+                end
+            end
+            if ~found
+                sample_data.dimensions{EV_FILE_D}.data{end+1} = ev_filename;
+            end
+            
+            found=0;
+            ev_ver = strtrim(cfields{ev_version});
+            if ~isempty(ev_ver) && ev_ver(1) == '"' && ev_ver(end) == '"'
+                ev_ver([1 end]) = [];
+            end
+            for i=length(sample_data.dimensions{EV_VERSION_D}.data):-1:1
+                if strcmp(ev_ver,sample_data.dimensions{EV_VERSION_D}.data(i))
+                    found=1;
+                    break;
+                end
+            end
+            if ~found
+                sample_data.dimensions{EV_VERSION_D}.data{end+1} = ev_ver;
+            end
+            
+            
+            if ninterval > 0
+                new_intervals(ninterval) = cinterval;
+                if isnan(sample_data.dimensions{TIME_D}.newdata(ninterval))
+                    sample_data.dimensions{TIME_D}.newdata(ninterval) = ...
+                        datenum([cfields{date} ' ' cfields{time}], 'yyyymmdd HH:MM:SS');
+                    
+                    if channel == 1
+                        lastint = cinterval;
+                    elseif cinterval > lastint
+                        warning('READ:CHANNEL', 'Channel %d has more intervals than channel 1', channel)
+                    end
+                end
+                if isnan(sample_data.dimensions{DEPTH_D}.data(clayer))
+                    sample_data.dimensions{DEPTH_D}.data(clayer) = layer_depth;
+                end
+                
+                sample_data.variables{LAT_V}.newdata(ninterval) = ...
+                    str2double(cfields(latitude));
+                sample_data.variables{LON_V}.newdata(ninterval) = ...
+                    str2double(cfields(longitude));
+                sample_data.variables{HEIGHT_V}.newdata(ninterval, clayer,channel) = ...
+                    str2double(cfields(mean_height));
+                sample_data.variables{DEPTH_V}.newdata(ninterval, clayer,channel) = ...
+                    str2double(cfields(mean_depth));
+                sample_data.variables{SV_V}.newdata(ninterval, clayer,channel) = csv;
+                sample_data.variables{SV_UNFILT_V}.newdata(ninterval, clayer,channel) = rsv;
+                sample_data.variables{SV_PCNT_GOOD_V}.newdata(ninterval, clayer,channel) = pctgood;
+                
+                if control.extended
+                    sample_data.variables{SV_SD_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(cfields(sv_sd));
+                    sample_data.variables{SV_SKEW_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(cfields(sv_skew));
+                    sample_data.variables{SV_KURT_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(cfields(sv_kurt));
+                    sample_data.variables{SV_UNFILT_SD_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(rfields(sv_sd));
+                    sample_data.variables{SV_UNFILT_SKEW_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(rfields(sv_skew));
+                    sample_data.variables{SV_UNFILT_KURT_V}.newdata(ninterval, clayer,channel) = ...
+                        str2double(rfields(sv_kurt));
+                end
+            end
+            
+        end
+    end
+    
+    data = ~isnan(sample_data.variables{LAT_V}.newdata);
+    
+    new_intervals = new_intervals(data);
+    if isempty(new_intervals)
+        warning('READ:GPS', 'No GPS data for %s, \nplease check gps.csv and worksheet position filter (max speed)', ...
+            cleanfile)
+        overlap = [];
+    else
+        overlap = find(have_intervals == new_intervals(1),1);
+    end
+    
+    if isempty(overlap)
+        overlap = length(have_intervals);
+    else
+        overlap = overlap -1;
+    end
+
+    have_intervals = [have_intervals(1:overlap) new_intervals];
+    sample_data.dimensions{TIME_D}.data = ...
+        vertcat(sample_data.dimensions{TIME_D}.data(1:overlap), sample_data.dimensions{TIME_D}.newdata(data));
+   
+    for k=1:vars
+        if sample_data.variables{k}.dimensions(1) == TIME_D;
+            sample_data.variables{k}.data = ...
+                vertcat(sample_data.variables{k}.data(1:overlap,:,:),  sample_data.variables{k}.newdata(data,:,:));
+        end
+    end
+    
+    
+end
+
+% clean up
+
+% drop depths for which there is no layer information
+ddata = ~isnan(sample_data.dimensions{DEPTH_D}.data);
+if ~isempty(find(~ddata,1))
+    sample_data.dimensions{DEPTH_D}.data = sample_data.dimensions{DEPTH_D}.data(ddata);
+    for k=1:vars
+        depth_d = find(sample_data.variables{k}.dimensions == DEPTH_D);
+        if ~isempty(depth_d)
+            if depth_d == 2
+                sample_data.variables{k}.data = sample_data.variables{k}.data(:,ddata,:);
+            else
+                error('Unexpected Depth Dimension - code needs fixing to handle this case');
+            end
+        end
+    end
+end
+
+% Drop echoview version dimension if only one version was used 
+if length(sample_data.dimensions{EV_VERSION_D}.data) == 1
+    sample_data.(sample_data.dimensions{EV_VERSION_D}.name) = sample_data.dimensions{EV_VERSION_D}.data{1};
+    sample_data = rmDimension(sample_data, EV_VERSION_D);
+end
+
+% Set quality control flags
+% 1 = No_QC_performed
+% 2 = Good_data
+% 4 = Bad_data_that_are_potentially_correctable
+
+sample_data.dimensions{DEPTH_D}.flags = ones(size(sample_data.dimensions{DEPTH_D}.data));
+sample_data.dimensions{TIME_D}.flags = ones(size(sample_data.dimensions{TIME_D}.data));
+sample_data.variables{LAT_V}.flags = ones(size(sample_data.dimensions{TIME_D}.data));
+sample_data.variables{LON_V}.flags = ones(size(sample_data.dimensions{TIME_D}.data));
+
+sample_data.variables{SV_V}.flags = ones(size(sample_data.variables{SV_V}.data));
+good = (sample_data.variables{SV_V}.data < 1) & ...
+    (sample_data.variables{SV_PCNT_GOOD_V}.data > control.accept_good);
+sample_data.variables{SV_V}.flags(good) = 2;
+sample_data.variables{SV_V}.flags(good) = 2;
+
+
+% determine data bounds
+sample_data = getBounds(sample_data);
+
+% drop 'newdata' field
+for k=1:length(sample_data.dimensions)
+    if isfield(sample_data.dimensions{k}, 'newdata')
+        sample_data.dimensions{k} = rmfield(sample_data.dimensions{k}, 'newdata');
+    end
+end
+for k=1:vars
+    if isfield(sample_data.variables{k}, 'newdata')
+        sample_data.variables{k} = rmfield(sample_data.variables{k}, 'newdata');
+    end
+end
+
+% convert to single channel format if possible and requested.
+if length(control.channel) == 1 && control.single_format
+    sample_data.channel = control.channel{1};
+    sample_data.frequency = control.frequency;
+    
+    sample_data = rmDimension(sample_data, CHANNEL_D);
+end
+
+end
+
+function line = trim(line)
+% Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present
+%
+
+if  strncmp(line, ['' 239 187 191], 3)          % UTF-8 - used by EchoView 4 & 5
+    line = line(4:end);
+end
+
+line=strtrim(line);
+
+end
+
+function [lines, intervals, layers] = nsort(lines)
+%sort comma separated lines by numeric values in fields
+
+index = zeros(length(lines),3);
+for i = 1 : length(lines)
+    index(i,3) = i;
+    line = lines{i};
+    c = find(line == ',',3);
+    index(i,1) = str2double(line(c(1)+1:c(2)-1));
+    index(i,2) = str2double(line(c(2)+1:c(3)-1));
+end
+index = sortrows(index);
+lines = lines(index(:,3));
+if nargout > 1
+    intervals = unique(index(:,1));
+    layers = unique(index(:,2));
+end
+end
+
+
+function sample_data = getBounds(sample_data)
+%GETBOUNDS reads data limits from the data and assigns the corresponding
+% global attributes.
+
+% set the time range
+mintime = NaN;
+maxtime = NaN;
+time = getVar(sample_data.dimensions, 'TIME');
+if time ~= 0
+    mintime = min(sample_data.dimensions{time}.data);
+    maxtime = max(sample_data.dimensions{time}.data);
+else
+    time = getVar(sample_data.variables, 'TIME');
+    if time ~= 0
+        mintime = min(sample_data.variables{time}.data);
+        maxtime = max(sample_data.variables{time}.data);
+    end
+end
+
+if isempty(mintime)
+    error('PARSE:no_data', 'No usable GPS data found in CSV file');
+end
+
+if ~isfield(sample_data, 'time_coverage_start') && ~isnan(mintime)
+    sample_data.time_coverage_start = mintime;
+end
+if ~isfield(sample_data, 'time_coverage_end') && ~isnan(maxtime)
+    sample_data.time_coverage_end = maxtime;
+end
+
+% set the geographic range
+goodlon = [];
+lon = getVar(sample_data.dimensions, 'LONGITUDE');
+if lon ~= 0
+    goodlon = sample_data.dimensions{lon}.data;
+else
+    lon = getVar(sample_data.variables, 'LONGITUDE');
+    if lon ~= 0
+        goodlon = sample_data.variables{lon}.data;
+    end
+end
+% force goodlon between -180 and 180
+goodlon = goodlon(goodlon >= -360 & goodlon <= 360);
+goodlon(goodlon < -180) = goodlon(goodlon < -180) + 360;
+goodlon(goodlon > 180) = goodlon(goodlon > 180) - 360;
+
+if ~ isempty(goodlon)
+    minlon = min(goodlon);
+    maxlon = max(goodlon);
+    % if we have data both sides (< 10 degrees) of the date line
+    % assume we cross the date line and not 0.
+    if (maxlon - minlon > 350)
+        minlon = min(goodlon(goodlon > 0));
+        maxlon = max(goodlon(goodlon < 0));
+    end
+    sample_data.geospatial_lon_min = minlon;
+    sample_data.geospatial_lon_max = maxlon;
+    sample_data.eastlimit = maxlon;
+    sample_data.westlimit = minlon;
+end
+
+goodlat = [];
+lat = getVar(sample_data.dimensions, 'LATITUDE');
+if lat ~= 0
+    goodlat = sample_data.dimensions{lat}.data;
+else
+    lat = getVar(sample_data.variables, 'LATITUDE');
+    if lat ~= 0
+        goodlat = sample_data.variables{lat}.data;
+    end
+end
+goodlat = goodlat(goodlat >= -90 & goodlat <= 90);
+
+if ~ isempty(goodlat)
+    minlat = min(goodlat);
+    maxlat = max(goodlat);
+    sample_data.geospatial_lat_min = minlat;
+    sample_data.geospatial_lat_max = maxlat;
+    sample_data.northlimit = maxlat;
+    sample_data.southlimit = minlat;
+end
+
+
+% set the depth range
+mindepth = NaN;
+maxdepth = NaN;
+depth = getVar(sample_data.dimensions, 'DEPTH');
+if depth ~= 0
+    mindepth = min(sample_data.dimensions{depth}.data);
+    maxdepth = max(sample_data.dimensions{depth}.data);
+else
+    depth = getVar(sample_data.variables, 'DEPTH');
+    if depth ~= 0
+        mindepth = min(sample_data.variables{depth}.data);
+        maxdepth = max(sample_data.variables{depth}.data);
+    end
+end
+
+if ~ isfield(sample_data, 'geospatial_vertical_min') && ~ isnan(mindepth)
+    sample_data.geospatial_vertical_min = mindepth;
+    sample_data.downlimit = mindepth;
+end
+if ~ isfield(sample_data, 'geospatial_vertical_max') && ~ isnan(maxdepth)
+    sample_data.geospatial_vertical_max = maxdepth;
+    sample_data.uplimit = maxdepth;
+end
+
+end
+
+function sample_data = evalQC(sample_data)
+%EVALQC evaluates the expression in the context where each dimension and
+%variable name represents its data.
+
+% put existing dimensions and variables into eval environment
+for k = 1:length(sample_data.dimensions)
+    eval([sample_data.dimensions{k}.name ' = sample_data.dimensions{k}.data;']);
+end
+for k = 1:length(sample_data.variables)
+    eval([sample_data.variables{k}.name ' = sample_data.variables{k}.data;']);
+end
+
+%
+% apply quality control formulae
+%
+for k = 1:length(sample_data.dimensions)
+    if ~isempty(sample_data.dimensions{k}.qcexp)
+        sample_data.dimensions{k}.flags = eval(sample_data.dimensions{k}.qcexp);
+    end
+end
+
+for k = 1:length(sample_data.variables)
+    if ~isempty(sample_data.variables{k}.qcexp)
+        sample_data.variables{k}.flags = eval(sample_data.variables{k}.qcexp);
+    end
+end
+
+end
+
+function sample_data = rmDimension(sample_data, dim)
+% rmDimension remove dimension.
+%
+% Removes the specified dimension from the sample_data including adjusting
+% the variable dimension indices.
+% Variables without dimension are converted to global attributes.
+
+    sample_data.dimensions(dim) = [];
+
+    for k = length(sample_data.variables):-1:1
+        sample_data.variables{k}.dimensions = ...
+            sample_data.variables{k}.dimensions(sample_data.variables{k}.dimensions ~= dim);
+        
+        adjust = sample_data.variables{k}.dimensions >= dim;
+        sample_data.variables{k}.dimensions(adjust) = sample_data.variables{k}.dimensions(adjust) - 1;
+        
+        if isempty(sample_data.variables{k}.dimensions)
+            if iscell(sample_data.variables{k}.data)
+                sample_data.(sample_data.variables{k}.name) = sample_data.variables{k}.data{1};
+            else
+                sample_data.(sample_data.variables{k}.name) = sample_data.variables{k}.data;
+            end
+            sample_data.variables(k) = [];
+        end
+    end
+end

@@ -1,0 +1,7 @@
+function debug(exception)
+if nargin > 0
+    fprintf('Stopped at %s line %d because of:\n%s\n', ...
+        exception.stack(1).file, exception.stack(1).line, exception.message);
+end
+fprintf('type "dbcont" and press Enter to continue\n');
+keyboard

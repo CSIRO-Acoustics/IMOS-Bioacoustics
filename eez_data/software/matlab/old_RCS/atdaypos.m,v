@@ -1,0 +1,170 @@
+head	1.2;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.2
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	97.04.17.05.46.36;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Derive values are specified positions and times from gridded mean and
+annual and semi-annual harmonics.
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@% ATDAYPOS  Given lats,lons and times, return values according to grid and 
+%           temporal functions.
+% INPUT:  
+%   lats, lons, doy:  vectors of required positions and day-of-year
+%   xgrid,ygrid, mn:  [ny,nx] long, lat and mean map
+%   an,sa          :  [ny,nx] optional annual and semi-annual harmonics
+%
+% Assumes: Uniformly spaced grid, with element 1,1 being in the SW corner. 
+%
+% JRD 23/4/96
+% USAGE: vals = atdaypos(lats,lons,doy,xgrid,ygrid,mn,an,sa)
+
+function [vals]=atdaypos(lats,lons,doy,xgrid,ygrid,mn,an,sa)
+
+t1 = 0;
+if nargin > 6 
+  t1 = length(find(isnan(an)));
+end
+t2 = 0;
+if nargin > 7
+  t2 = length(find(isnan(sa)));
+end
+
+
+% If there are no NaNs in the harmonics we can get away with the much simpler
+% and more accurate method below:
+    
+if t1==0 & t2==0
+
+  vals = interp2(xgrid,ygrid,mn,lons,lats,'bilinear');
+
+  if nargin > 6
+    ann = interp2(xgrid,ygrid,an,lons,lats,'bilinear');
+    vals = vals + real(ann.*exp(-i*doy*2*pi/366));
+  end
+  if nargin > 7
+    saa = interp2(xgrid,ygrid,sa,lons,lats,'bilinear');
+    vals = vals + real(saa.*exp(-i*doy*4*pi/366));
+  end
+
+else
+
+  an = change(an,'==',NaN,0);
+  if t2 ~= 0
+    sa = change(sa,'==',NaN,0);
+  end
+  
+  [mg,ng] = size(xgrid);
+  vals = NaN*ones(length(lats),1);
+
+  vbase = interp2(xgrid,ygrid,mn,lons,lats,'bilinear');
+
+  gsp = abs(xgrid(1,1)-xgrid(1,2));
+  orgn = [xgrid(1,1)-gsp/2 ygrid(1,1)-gsp/2];
+
+  if nargin==6
+    vals = vbase;
+  elseif nargin==7
+    for ii = 1:length(lats)
+      elr = 1+floor((lons(ii)-orgn(1))/gsp);
+      elc = 1+floor((lats(ii)-orgn(2))/gsp);
+      [elr elc]
+      if( elr>=1 & elr<=ng & elc>=1 & elc<=mg)
+	vals(ii) = vbase(ii) + real(an(elc,elr)*exp(-i*doy(ii)*2*pi/366));
+      end
+    end
+  elseif nargin==8
+    for ii = 1:length(lats)
+      elr = 1+floor((lons(ii)-orgn(1))/gsp);
+      elc = 1+floor((lats(ii)-orgn(2))/gsp);
+      if( elr>=1 & elr<=ng & elc>=1 & elc<=mg)
+	vals(ii) = vbase(ii) ...
+	    + real(an(elc,elr)*exp(-i*2*pi/366*doy(ii))) ...
+	    + real(sa(elc,elr)*exp(-i*4*pi/366*doy(ii)));
+      end
+    end
+  end
+  
+end
+
+% -------------- End of atdaypos ----------------------
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 6
+a6 4
+function [vals]=zit(lats,lons,tims,xgrid,ygrid,zi,zi_an,zi_sa)
+
+% ZIT  Given lats,lons and times, return values according to grid and temporal
+%      functions.
+d11 3
+a13 1
+% USAGE: [vals]=zit(lats,lons,tims,xgrid,ygrid,zi,zi_an,zi_sa)
+d15 1
+d17 5
+a21 8
+  t1 = length(find(isnan(zi_an)));
+  if nargin > 7
+    t2 = length(find(isnan(zi_sa)));
+  else
+    t2 = 0;
+  end
+else
+  t1 = 0;
+d30 1
+a30 1
+  vals = interp2(xgrid,ygrid,zi,lons,lats,'bilinear');
+d33 2
+a34 2
+    an = interp2(xgrid,ygrid,zi_an,lons,lats,'bilinear');
+    vals = vals + real(an*exp(-i*tims*2*pi/366));
+d37 2
+a38 2
+    sa = interp2(xgrid,ygrid,zi_sa,lons,lats,'bilinear');
+    vals = vals + real(sa*exp(-i*tims*4*pi/366));
+d43 1
+a43 1
+  zi_an = change(zi_an,'==',NaN,0);
+d45 1
+a45 1
+    zi_sa = change(zi_sa,'==',NaN,0);
+d51 1
+a51 1
+  vbase = interp2(xgrid,ygrid,zi,lons,lats,'bilinear');
+d64 1
+a64 1
+	vals(ii) = vbase(ii) + real(zi_an(elc,elr)*exp(-i*tims(ii)*2*pi/366));
+d73 2
+a74 2
+	    + real(zi_an(elc,elr)*exp(-i*2*pi/366*tims(ii))) ...
+	    + real(zi_sa(elc,elr)*exp(-i*4*pi/366*tims(ii)));
+d81 1
+a81 1
+% -------------- End of zit ----------------------
+@

@@ -1,0 +1,558 @@
+head	1.6;
+access;
+symbols;
+locks
+	dun216:1.6; strict;
+comment	@# @;
+
+
+1.6
+date	2001.06.07.00.00.59;	author dun216;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2000.08.24.00.07.31;	author dunn;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2000.03.14.23.03.52;	author dunn;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	98.06.25.01.29.40;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	98.06.11.03.15.16;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	98.06.11.00.22.17;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Extract vertical profiles from climatologies at given locations and d_o_y.
+@
+
+
+1.6
+log
+@Updates prior to June 01.
+@
+text
+@% GET_CLIM_CASTS: Return 3D extracts from CARS, at a set of locations and
+%      depths, and optionally day-of-years, optionally limiting geographic
+%      range to improve efficiency.     SUPERCEDES 'getsection'
+% INPUT
+%  prop    property ('t','s','o','si','n', OR 'p')
+%  lon,lat   vectors of NN locations
+%  deps    vector of DD depths (in m). Needs to be sorted but not nec. contiguous.
+%  doy     OPTIONAL vector of NN day-of-year corresponding to locations
+%  fname   OPTIONAL other maps to use instead of CARS: 'filled', 'sea10'
+%  woa     OPTIONAL 1=use WOA98 (Levitus) outside of CARS region
+%  fll     OPTIONAL 1=values at all depths outside of land areas 
+%
+% OUTPUT
+%  vv      psuedo-casts extracted from CARS, dimensioned [DD,NN]
+%  out     index to casts outside region of specified maps
+%
+% AUTHOR: Jeff Dunn  CSIRO DMR  May 1998
+% $Id: get_clim_casts.m,v 1.5 2000/08/24 00:07:31 dunn Exp dunn $
+%
+% CALLS:  clname  isinpoly  coord2grd  getchunk  get_woa_profiles
+%
+% USAGE: [vv,out] = get_clim_casts(prop,lon,lat,deps,doy,fname,woa,fll);
+
+function [vv,out] = get_clim_casts(prop,lon,lat,deps,doy,fname,woa,fll);
+
+vers = version;
+if ~strcmp(vers(1),'5')
+  error('Sorry - GET_CLIM_CASTS only works in Matlab v5')
+end
+
+ncquiet;
+
+if nargin<5; doy = []; end
+if nargin<6; fname = []; end
+if nargin<7 | isempty(woa); woa = 0; end
+if nargin<8 | isempty(fll); fll = 0; end
+
+lon = lon(:)';
+lat = lat(:)';
+doy = doy(:)';
+
+vv = repmat(nan,length(deps),length(lon));
+
+tcor = -i*2*pi/366;
+cpath = [];
+
+[tmp,ncf] = clname(prop,cpath,fname);
+gor = ncf{'gr_origin'}(:);
+gsp = ncf{'grid_space'}(:);
+rot = ncf{'rotation'}(:);
+cnrs = ncf{'corners'}(:);
+close(ncf);
+
+if isempty(rot) | rot==0
+  ic = find(lon>=min(cnrs(2,:)) & lon<=max(cnrs(2,:)) & ...
+      lat>=min(cnrs(1,:)) & lat<=max(cnrs(1,:)));
+else
+  ic = isinpoly(lon,lat,cnrs(2,:),cnrs(1,:));
+  ic = find(ic>0);
+end
+ic = ic(:)';  
+
+
+if ~isempty(ic) 
+  % Auto-set an efficient range, but guard against degenerate ones which 
+  % would not provide enough grid points for interpolation.
+
+  range = [floor((min(lon(ic))-.1)/gsp(2))*gsp(2) ...
+	  ceil((max(lon(ic))+.1)/gsp(2))*gsp(2) ...
+	 floor((min(lat(ic))-.1)/gsp(1))*gsp(1) ...
+	  ceil((max(lat(ic))+.1)/gsp(1))*gsp(1)];
+  ndep = length(deps);
+  
+  % Convert position to index-coords into the climatology chunk, so can
+  % use abbreviated form for interp3 (ie not supply meshgrid). Because deeper
+  % NaNs wipe out estimates up to and including at the layer above, we shift Z
+  % to be just above the layer so they are uneffected by NaNs below. (However, 
+  % this would then put layer 1 outside of the grid and hence lose it, so we
+  % 2D-interpolate it separately!)
+
+  [X,Y] = coord2grd(lon(ic),lat(ic),gor(2),gor(1),gsp(2),gsp(1),rot);
+
+  if isempty(doy)
+     [mn,t2,t3,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,-2,fll);
+     X = X+1-min(ix);
+     Y = Y+1-min(iy);
+     if min(size(mn))<2
+	error('GET_CLIM_CASTS - region lacks enough grid points to interpolate')
+     end
+     vv(1,ic) = interp2(mn(:,:,1),X,Y,'*linear');
+     if ndep>1
+	Y = repmat(Y,ndep-1,1);
+	X = repmat(X,ndep-1,1);
+	Z = repmat((2:ndep)'-.0001,1,length(ic));
+	vv(2:ndep,ic) = interp3(mn,X,Y,Z,'*linear');
+     end    
+  else
+    [mn,an,sa,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,2,fll);
+
+    if isempty(an)
+       disp('No temporal harmonics available for these depths');
+       tdep = 0;
+    elseif ndims(an)==2       
+       tdep = 1;
+    else
+       tdep = ndep;
+    end
+    if isempty(sa)
+       semian = 0;
+    else
+       semian = 1;
+    end
+    
+    X = X+1-min(ix);
+    Y = Y+1-min(iy);
+    mt = interp2(mn(:,:,1),X,Y,'*linear');
+    if tdep>0
+       at = interp2(an(:,:,1),X,Y,'*linear');
+       if semian; st = interp2(sa(:,:,1),X,Y,'*linear'); end
+    end
+    
+    if ndep>1
+      Y = repmat(Y,ndep-1,1);
+      X = repmat(X,ndep-1,1);
+      Z = repmat((2:ndep)'-.0001,1,length(ic));
+      mt = [mt; interp3(mn,X,Y,Z,'*linear')];
+      if tdep>1
+	 at = [at; interp3(an,X,Y,Z,'*linear')];
+	 if semian; st = [st; interp3(sa,X,Y,Z,'*linear')]; end
+      end
+    end
+
+    % Pre-load vv in case tdep=0 or is less than ndep. 
+    vv(:,ic) = mt;
+    if tdep>0
+       % Replace temporal NaNs with 0 so that these have no effect in computation.
+       kk = find(isnan(at));
+       if ~isempty(kk), at(kk) = zeros(size(kk)); end
+       if semian
+	  kk = find(isnan(st));
+	  if ~isempty(kk), st(kk) = zeros(size(kk)); end
+       end
+       tdoy = tcor.*repmat(doy(ic),tdep,1);
+
+       if semian
+	  vv(1:tdep,ic) = mt(1:tdep,:) + real(at.*exp(tdoy)) + real(st.*exp(2.*tdoy));
+       else
+	  vv(1:tdep,ic) = mt(1:tdep,:) + real(at.*exp(tdoy));
+       end
+    end
+  end
+end
+
+
+if length(ic)<length(lat(:))
+  out = 1:length(lat(:));
+  out(ic) = [];
+else
+  out = [];
+end
+
+if ~woa
+  if isempty(ic)
+    warning('None of given locations are within this climatology`s region')
+  end
+else
+  if ~isempty(out)     
+     wdep = dep_std(deps);
+     iw = find(wdep==round(wdep));
+     if length(iw)~=length(deps)
+	nwdep = deps;
+	nwdep(iw) = [];
+	disp('The following depths are not available in WOA98 (is it mapped on');
+	disp(['a smaller set on depth levels: ' num2str(nwdep)]);
+     end
+     if ~isempty(iw)
+	disp([num2str(length(out)) ' profiles used WOA98']);
+	if isempty(doy)
+	   vv(iw,out) = get_woa_profiles(prop,lon(out),lat(out),wdep(iw));
+	else
+	   vv(iw,out) = get_woa_profiles(prop,lon(out),lat(out),wdep(iw),doy(out));
+	end
+	out = [];
+     end
+  end
+end
+
+%------------- End of get_clim_casts -------------------------
+@
+
+
+1.5
+log
+@Add functionality to select filled or as-mapped data.
+@
+text
+@d7 1
+a7 1
+%  deps    vector of DD depth level numbers. Need not be contiguous.
+d10 1
+a10 1
+%  woa     OPTIONAL 1=use WOA97 (Levitus) outside of CARS region
+d18 1
+a18 1
+% $Id: get_clim_casts.m,v 1.4 2000/03/14 23:03:52 dunn Exp dunn $
+d35 1
+a35 1
+if nargin<7; woa = []; end
+d101 8
+a108 2
+       error('No temporal harmonics available - set "doy = []"')
+    elseif isempty(sa)
+d117 4
+a120 2
+    at = interp2(an(:,:,1),X,Y,'*linear');
+    if semian; st = interp2(sa(:,:,1),X,Y,'*linear'); end
+d127 4
+a130 2
+      at = [at; interp3(an,X,Y,Z,'*linear')];
+      if semian; st = [st; interp3(sa,X,Y,Z,'*linear')]; end
+d133 17
+a149 14
+    % Replace temporal NaNs with 0 so that these have no effect in computation.
+    kk = find(isnan(at));
+    if ~isempty(kk), at(kk) = zeros(size(kk)); end
+    if semian
+       kk = find(isnan(st));
+       if ~isempty(kk), st(kk) = zeros(size(kk)); end
+    end
+    
+    doy = repmat(doy(ic),ndep,1);
+
+    if semian
+       vv(:,ic) = mt + real(at.*exp(tcor.*doy)) + real(st.*exp(2.*tcor.*doy));
+    else
+       vv(:,ic) = mt + real(at.*exp(tcor.*doy));
+d162 1
+a162 1
+if isempty(woa)
+d167 18
+a184 8
+  if ~isempty(out)
+    disp([num2str(length(out)) ' profiles used WOA97']);
+    if isempty(doy)
+      vv(:,out) = get_woa_profiles(prop,lon(out),lat(out),deps);
+    else
+      vv(:,out) = get_woa_profiles(prop,lon(out),lat(out),deps,doy(out));
+    end
+    out = [];
+@
+
+
+1.4
+log
+@Generalise to handle maps with annual but not semi-annual harmonnics.
+@
+text
+@d9 1
+a9 1
+%  fname   OPTIONAL other maps to use instead of CARS: 'filled', 'sea10' 
+d11 1
+d18 1
+a18 1
+% $Id: get_clim_casts.m,v 1.3 1998/06/25 01:29:40 dunn Exp dunn $
+d22 1
+a22 1
+% USAGE: [vv,out] = get_clim_casts(prop,lon,lat,deps,doy,fname,woa);
+d24 1
+a24 1
+function [vv,out] = get_clim_casts(prop,lon,lat,deps,doy,fname,woa);
+d36 1
+d84 13
+a96 15
+
+    [mn,t2,t3,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,-2);
+    X = X+1-min(ix);
+    Y = Y+1-min(iy);
+    if min(size(mn))<2
+      error('GET_CLIM_CASTS - region lacks enough grid points to interpolate')
+    end
+    vv(1,ic) = interp2(mn(:,:,1),X,Y,'*linear');
+    if ndep>1
+      Y = repmat(Y,ndep-1,1);
+      X = repmat(X,ndep-1,1);
+      Z = repmat((2:ndep)'-.0001,1,length(ic));
+      vv(2:ndep,ic) = interp3(mn,X,Y,Z,'*linear');
+    end
+    
+d98 1
+a98 2
+    
+    [mn,an,sa,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,2);
+@
+
+
+1.3
+log
+@Debug
+@
+text
+@d5 6
+a10 6
+%  prop  - property ('t','s','o','si','n', OR 'p')
+%  lon,lat  - vectors of NN locations
+%  deps  - vector of DD (standard) depths. Need not be contiguous.
+%  doy   - OPTIONAL: vector of NN day-of-year corresponding to locations
+%  fname - OPTIONAL: other maps to use instead of CARS: 'filled', 'sea10' 
+%  woa   - OPTIONAL: 1=use WOA97 (Levitus) outside of CARS region
+d16 4
+a19 2
+% Author: Jeff Dunn  CSIRO DMR  May 1998
+% $Id: get_clim_casts.m,v 1.2 1998/06/11 03:15:16 dunn Exp dunn $
+d30 6
+a44 4
+if nargin<5; doy = []; end
+if nargin<6; fname = []; end
+if nargin<7; woa = []; end
+
+d50 1
+d66 4
+a69 4
+  range = [floor((minjd(lon(ic))-.1)/gsp(2))*gsp(2) ...
+	  ceil((maxjd(lon(ic))+.1)/gsp(2))*gsp(2) ...
+	 floor((minjd(lat(ic))-.1)/gsp(1))*gsp(1) ...
+	  ceil((maxjd(lat(ic))+.1)/gsp(1))*gsp(1)];
+d100 9
+d113 2
+a114 1
+    st = interp2(sa(:,:,1),X,Y,'*linear');
+d121 1
+a121 1
+      st = [st; interp3(sa,X,Y,Z,'*linear')];
+d127 4
+a130 2
+    kk = find(isnan(st));
+    if ~isempty(kk), st(kk) = zeros(size(kk)); end
+d134 5
+a138 2
+    vv(:,ic) = mt + real(at.*exp(tcor.*doy)) + real(st.*exp(2.*tcor.*doy));
+
+@
+
+
+1.2
+log
+@Major revision so user can specify other maps, including ones with rotated
+grids.
+@
+text
+@d17 1
+a17 1
+% $Id: $
+a47 1
+  plaid = 1;
+a50 1
+  plaid = 0;
+d74 1
+a74 7
+  if plaid
+    Y = 1+((lat(ic)-range(3))/gsp(1));
+    X = 1+((lon(ic)-range(1))/gsp(2));
+  else  
+    [X,Y] = coord2grd(lon(ic),lat(ic),gor(2),gor(1),gsp(2),gsp(1),rot);
+  end
+
+d78 3
+a80 7
+    if plaid
+      mn = getchunk(prop,deps,range,cpath,fname);
+    else
+      [mn,t2,t3,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,-2);
+      X = X+1-min(ix);
+      Y = Y+1-min(iy);
+    end
+d94 3
+a96 7
+    if plaid
+      [mn,an,sa] = getchunk(prop,deps,range,cpath,fname);
+    else
+      [mn,an,sa,t4,t5,ix,iy] = getchunk(prop,deps,range,cpath,fname,2);
+      X = X+1-min(ix);
+      Y = Y+1-min(iy);
+    end
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d9 1
+a9 1
+%  fild  - OPTIONAL: 1=use horizontally filled (ie underground) maps
+d12 3
+a14 1
+% OUTPUT - psuedo-casts extracted from CARS, dimensioned [DD,NN]
+d19 1
+a19 1
+% USAGE: vv = get_clim_casts(prop,lon,lat,deps,doy,fild,woa);
+d21 1
+a21 1
+function clim = get_clim_casts(prop,lon,lat,deps,doy,fild,woa);
+d28 3
+a30 3
+if size(lon,2)==1; lon=lon'; end
+if size(lat,2)==1; lat=lat'; end
+if size(doy,2)==1; doy=doy'; end
+d32 1
+a32 1
+clim = repmat(nan,length(deps),length(lon));
+d35 46
+a80 13
+cpath = '/home/eez_data/atlas/';
+filn = [];
+if nargin>5
+  if ~isempty(fild)
+    if fild==1
+      if prop=='t'
+	filn = 'temperature_filled';
+      elseif prop=='s'
+	filn = 'salinity_filled';
+      else
+	disp('Note: only have "filled" maps for T and S');
+      end
+    end
+a81 1
+end
+a82 8
+if nargin<5
+  doy = [];
+end
+if nargin<7
+  woa = 1;
+elseif isempty(woa)
+  woa = 0;
+end
+d84 24
+a107 10
+ic = find(lon>=100 & lon<=180 & lat>=-50 & lat<=0);
+ic = ic(:)';
+if isempty(ic) & ~woa
+  error('None of given locations are within the CARS region')
+end
+if woa
+  iw = find(lon<100 | lon>180 | lat<-50 | lat>0);
+  if ~isempty(iw)
+    if isempty(doy)
+      clim(:,iw) = get_woa_profiles(prop,lon(iw),lat(iw),deps);
+d109 3
+a111 1
+      clim(:,iw) = get_woa_profiles(prop,lon(iw),lat(iw),deps,doy(iw));
+d113 22
+a137 2
+% Auto-set an efficient range, but guard against degenerate ones which 
+% would not provide enough grid points for interpolation.
+d139 10
+a148 26
+range = [minjd(lon(ic)) maxjd(lon(ic)) minjd(lat(ic)) maxjd(lat(ic))];
+range([1 3]) = floor((range([1 3])-.1)*2)/2;
+range([2 4]) =  ceil((range([2 4])+.1)*2)/2;
+ndep = length(deps);
+
+% Convert position to index-coords into the climatology chunk, so can
+% use abbreviated form for interp3 (ie not supply meshgrid). Because deeper
+% NaNs wipe out estimates up to and including at the layer above, we shift Z
+% to be just above the layer so they are uneffected by NaNs below. (However, 
+% this would then put layer 1 outside of the grid and hence lose it, so we
+% 2D-interpolate it separately!)
+
+Y = 1+((lat(ic)-range(3))*2);
+X = 1+((lon(ic)-range(1))*2);
+
+if isempty(doy)
+  mn = getchunk(prop,deps,range,cpath,filn);
+  if min(size(mn))<2
+    error('GET_CLIM_CASTS - region lacks enough grid points to interpolate')
+  end
+  clim(1,ic) = interp2(mn(:,:,1),X,Y,'*linear');
+  if ndep>1
+    Y = repmat(Y,ndep-1,1);
+    X = repmat(X,ndep-1,1);
+    Z = repmat((2:ndep)'-.0001,1,length(ic));
+    clim(2:ndep,ic) = interp3(mn,X,Y,Z,'*linear');
+d151 8
+a158 11
+  [mn,an,sa] = getchunk(prop,deps,range,cpath,filn);
+  mt = interp2(mn(:,:,1),X,Y,'*linear');
+  at = interp2(an(:,:,1),X,Y,'*linear');
+  st = interp2(sa(:,:,1),X,Y,'*linear');
+  if ndep>1
+    Y = repmat(Y,ndep-1,1);
+    X = repmat(X,ndep-1,1);
+    Z = repmat((2:ndep)'-.0001,1,length(ic));
+    mt = [mt; interp3(mn,X,Y,Z,'*linear')];
+    at = [at; interp3(an,X,Y,Z,'*linear')];
+    st = [st; interp3(sa,X,Y,Z,'*linear')];
+a159 10
+
+  % Replace temporal NaNs with 0 so that these have no effect in computation. 
+  kk = find(isnan(at));
+  if ~isempty(kk), at(kk) = zeros(size(kk)); end
+  kk = find(isnan(st));
+  if ~isempty(kk), st(kk) = zeros(size(kk)); end
+    
+  doy = repmat(doy(ic),ndep,1);
+
+  clim(:,ic) = mt + real(at.*exp(tcor.*doy)) + real(st.*exp(2.*tcor.*doy));
+@

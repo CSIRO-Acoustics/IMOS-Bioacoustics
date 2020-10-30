@@ -1,0 +1,163 @@
+function export_import_HAC(EvApp, ev_filelist, control, progress)
+% Export the requested variable from the specified worksheets to HAC files.
+%
+% Inputs:
+%   EvApp       a handle to a COM object of an EchoviewApplication.
+%   ev_filelist list of worksheets to export from    
+%   control     structure with control settings including:
+%           export_HAC - boolean - export HACs?
+%           import_HAC - boolean - import HACs?
+%           HAC_directory - string - name of directory containing HAC files 'HAC_outputs'
+%           HAC - integer vector - HACs to process
+%   progress    function to report progress to the user.
+
+    if nargin < 4
+        progress = [];
+    end
+    start = tic;
+    
+    % -- Setup HAC output directory
+    [path, ~, ~] = fileparts(ev_filelist{1});
+    [path, ~, ~] = fileparts(path);
+    
+    HAC_Output_dir = fullfile(path, control.HAC_directory);
+    if ~isdir(HAC_Output_dir)
+        mkdir(HAC_Output_dir)
+    end
+    
+    % -- process each file
+    for i=1:length(ev_filelist)
+        [~, name, ext] = fileparts(ev_filelist{i});
+        EvFile = EvApp.OpenFile(ev_filelist{i});
+        if isempty(EvFile)
+            
+            error('Unable to open EV file %s', ev_filelist{i});
+        end
+        
+        for channel = control.channel
+        for hac = control.HAC
+            FilesetName = [channel{1} '_HAC' num2str(hac)];
+            VarName = [FilesetName '_exp'];
+            
+            % export
+            if control.export_HAC
+                if ~isempty(progress)
+%                     progress(control, ['export ' FilesetName] , i, length(ev_filelist), start, VarName);
+                    progress(control, ['export variable ' VarName] , [], 0,[],['to ' HAC_Output_dir]);
+                end
+                
+                try
+                    Var = EvFile.Variables.FindByName(VarName);
+                    if isempty(Var)
+                        Var = EvFile.Variables.FindByName(['HAC' num2str(hac) '_exp']);     % old format
+                    end
+                    if isempty(Var)
+                        warning('HAC:NO_VAR','Cannot find variable %s, skipping HAC %d', VarName, hac)
+                        break
+                    end
+                catch exception
+                    fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                        exception.stack(1).file, exception.stack(1).line, exception.message);
+                    fprintf('type "dbcont" and press Enter to continue\n');
+                    keyboard
+                end
+                try
+                    VarAc = Var; %.AsVariableAcoustic;
+                catch exception
+                    fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                        exception.stack(1).file, exception.stack(1).line, exception.message);
+                    fprintf('type "dbcont" and press Enter to continue\n');
+                    keyboard
+                end
+                
+                % -- setup the export file name
+                export_file_name = fullfile(HAC_Output_dir, [ name ' ' VarName '.hac']);
+                if control.verbosity > 1
+%                     fprintf('Exporting %s \nfrom variable %s \nfrom ev file %s \n', export_file_name, VarAc.Name, EvFile.FileName)
+                    fprintf('                     exporting %s variable from EV file %s                     \n', VarName, [name ext])
+                end
+                try
+                    VarAc.ExportHAC(export_file_name,-1,-1, 1); % compressed HAC format
+                catch exception
+                    fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                        exception.stack(1).file, exception.stack(1).line, exception.message);
+                    fprintf('type "dbcont" and press Enter to continue\n');
+                    keyboard
+                end
+            end
+            
+            % import
+            if control.import_HAC
+                if ~isempty(progress)
+%                     progress(control, ['import ' FilesetName] , i, length(ev_filelist), start, VarName);
+                    progress(control, ['import ' name ' ' VarName '_000000.hac'] , [], 0, [],['from ' HAC_Output_dir]);
+                end
+                
+                hac_files = dir(fullfile(HAC_Output_dir, [ name ' ' VarName '_0*.hac']));
+                hac_file_to_add = fullfile(HAC_Output_dir, [ name ' ' VarName '_000000.hac']);
+                if control.verbosity > 1
+%                     fprintf('\nImporting HAC file %d of %d:\n%s \ninto ev fileset: %s\n\n', ...
+%                         i, length(ev_filelist), hac_file_to_add, [name ext]);
+                    fprintf('                     importing HAC file %s into EV fileset %s                     \n', [name ' ' VarName '_000000.hac'], [name ext])
+                end
+                if isempty(hac_files)
+                    warning('EXPIMP:NOFILE', 'HAC file to import not found: %s',hac_file_to_add);
+                end
+                                
+                try
+                    fileset = EvFile.Filesets.FindByName(FilesetName);
+                    if isempty(fileset)
+                        fileset = EvFile.Filesets.FindByName(['HAC' num2str(hac)]);     % old format
+                    end
+                    
+                    % remove existing hacs
+                    while  fileset.DataFiles.Count > 0
+                         fileset.DataFiles.Remove(fileset.DataFiles.Item(0));
+                    end
+                    
+                    for h = 1:length(hac_files)
+                        if ~fileset.DataFiles.Add(fullfile(HAC_Output_dir,hac_files(h).name))
+                            warning('EXPIMP:NOTADD', 'File not added - check the name and path is correct: \n%s\n%s', HAC_Output_dir, hac_files(h).name)
+                        end
+                    end
+                catch exception
+                        if isempty(fileset)                            
+                            errordlg({'Help program has halted!!!.'
+                                ''
+                                'Trying to import HAC file to a HAC fileset' 
+                                'but most likely this does not exist in the ev file:'
+                                FilesetName
+                                'Check the EV file.' 
+                                'Quit running this program add a HAC fileset as required and re-run'
+                                ''
+                                'or Plan B if your template does not have HAC filesets,' 
+                                're-run the processing but this time'
+                                'uncheck all of the HAC checkboxes'}, ...
+                                'HAC fileset missing')
+                        end                                                                              
+                        fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                            exception.stack(1).file, exception.stack(1).line, exception.message);
+                        fprintf('type "dbcont" and press Enter to continue\n');
+                        keyboard
+                end
+            end
+        end
+        end
+        
+        pause(10);
+        EvFile.Save;
+        try
+        EvFile.Close;
+        catch exception
+            % workaround for echoview 7 intermittant crash on close bug
+            warning('EI_HAC:EV7_CLOSE', 'Echoview close problem %s', exception.message)
+            EvApp = actxserver('EchoviewCom.EvApplication');
+        end
+        if control.verbosity > 0
+            fprintf('                     export to HAC & import into EV fileset completed %d of %d\n',i, length(ev_filelist));
+        end
+    end
+    
+end
+    
+    

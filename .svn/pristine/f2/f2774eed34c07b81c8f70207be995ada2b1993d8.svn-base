@@ -1,0 +1,241 @@
+function settings = basoop(values)
+% basoop returns a structure containing all the hard coded values
+% used by the IMOS BASOOP application.
+%
+% If an input structure is provided fields will be copied from it in
+% preference to the default values.
+
+    settings = struct([]);
+    if nargin > 0
+        if ischar(values)
+            try 
+                settings = load(values);
+            catch e
+                settings = read(values);
+            end
+        elseif isstruct(values)
+            settings = struct(values);
+        end
+    end
+    
+    settings(1).version = '2.3 $Id$';
+    
+    % read string settings from default setting file, 
+    if exist('default_settings.txt', 'file') == 2
+        settings = read('default_settings.txt', settings);
+    end
+    
+    %settings = default(settings, '',       '');
+    
+    % options marked with a %GUI comment are updated by the GUI in start_process
+    
+    % echoview configuration
+    settings = default(settings, 'EvApp',           'EchoviewCom.EvApplication');
+    settings = default(settings, 'EvPath',          'C:\Program Files\Myriax\Echoview\Echoview4\');
+    
+    % echoview virtual variables
+    settings = default(settings, 'base_variable_name',      'Sv_38kHz');
+    settings = default(settings, 'resample_variable_name',  'Sv 38 kHz resample for DSL convolution');
+    settings = default(settings, 'export_reference_variable_name',       'HAC Sv %s');
+    settings = default(settings, 'export_final_variable_name',       'Final_%s_cleaned');
+    settings = default(settings, 'export_rejectdata_variable_name',       'Reject_%s');
+    settings = default(settings, 'upper_DSL_line',       'upper DSL line');
+    settings = default(settings, 'Grid_height',       10);
+    settings = default(settings, 'Grid_distance',     1000);
+    
+    settings = default(settings, 'soundspeed_formula', 'Coppens');          %GUI
+    settings = default(settings, 'soundabsorption_formula', 'Francois');    %GUI
+    
+    settings = default(settings, 'filesets', {'Vessel_sv_data', '12kHz'});
+    
+    % file names
+    if ispc
+        settings = default(settings, 'template',            'Q:\IMOS_echoview_templates');	%GUI
+        % settings = default(settings, 'dataview_dir',      'Z:\software\dataview');
+        % settings = default(settings, 'dataview_cmd',      'java -Xmx2000m -jar dataview.jar');
+        settings = default(settings, 'dataview_dir',        'Q:\');
+        %settings = default(settings, 'dataview_cmd',       '"C:\Program Files (x86)\Java\jre6\bin\javaw.exe" -jar -Xmx1500m Z:\software\dataview\dataview.jar');
+        settings = default(settings, 'dataview_cmd',        'javaw.exe -jar -Xmx1500m Z:\software\dataview\dataview.jar');
+        settings = default(settings, 'transit_data_files',  'Q:\temp\transit_gps_datalist.txt');	%GUI
+        settings = default(settings, 'transit_gps_file',    'Q:\temp\transit_gps.gps.csv');	%GUI
+        settings = default(settings, 'transit_pitch_file',  'Q:\temp\transit_gps.pitch.csv');	%GUI
+        settings = default(settings, 'transit_roll_file',   'Q:\temp\transit_gps.roll.csv');	%GUI
+        settings = default(settings, 'processed_directory', 'Q:\Processed_data');
+        settings = default(settings, 'alt_ev_dir',          'Q:\Processed_data');	%GUI
+        settings = default(settings, 'alt_ev_files',        'Q:\Processed_data');	%GUI
+        settings = default(settings, 'worksheet_directory', 'Echoview_worksheets');
+        settings = default(settings, 'HAC_directory',       'HAC_outputs');
+        settings = default(settings, 'echointegration_directory', 'echointegration_output');
+        settings = default(settings, 'echointegration_path', '');
+        settings = default(settings, 'merge_config',        'echoview_config.txt');	
+        settings = default(settings, 'merge_file',          'merge.csv');	%GUI
+        settings = default(settings, 'parse_file',          '');            %GUI
+        settings = default(settings, 'netcdf_file',         'Q:\Processed_data\NetCDF\IMOS\');	%GUI
+        settings = default(settings, 'calibration_file',    'Z:\echoview_worksheet\SupplementaryCalibrationFiles\');	%GUI
+        settings = default(settings, 'voyage_inf',          'Q:\Rawdata');	%GUI
+        settings = default(settings, 'metadata_file',       '');           
+        settings = default(settings, 'netcdf_directory',    'Q:\Processed_data\NetCDF\IMOS\');	%GUI
+        settings = default(settings, 'ex_netcdf_directory', 'Q:\Processed_data\NetCDF\CSIRO\');	%GUI
+    	settings = default(settings, 'sst_path',            '\\nfstas01-hba\proj1\toolbox\local\csirolib\;\\nfstas01-hba\proj1\eez_data\software\matlab\');
+    	settings = default(settings, 'synTS_path',          { ...
+            '\\fstas2-hba\datalib\climatologies\synTS\hindcast13\'; ...
+            '\\fstas2-hba\datalib\climatologies\synTS\hindcast06\'; ...
+            '\\fstas2-hba\datalib\climatologies\synTS\NRT06\'; ...
+            '\\fstas2-hba\datalib\climatologies\synTS\NRT06_v1\'});
+        settings = default(settings, 'npp_path',            '');
+    else    % options involving echoview don't work under unix
+        settings = default(settings, 'template',            '/mnt/WaterColumnAcoustics/IMOS_echoview_templates');	%GUI
+        settings = default(settings, 'dataview_dir',        '/home/acoustics/swath/software/dataview');
+        settings = default(settings, 'dataview_cmd',        'dataview');
+        settings = default(settings, 'transit_data_files',  '/mnt/WaterColumnAcoustics/temp/transit_data_files.txt');	%GUI
+        settings = default(settings, 'transit_gps_file',    '/mnt/WaterColumnAcoustics/temp/transit_gps.gps.csv');	%GUI
+        settings = default(settings, 'transit_pitch_file',  '/mnt/WaterColumnAcoustics/temp/transit.pitch.csv');	%GUI
+        settings = default(settings, 'transit_roll_file',   '/mnt/WaterColumnAcoustics/temp/transit.roll.csv');	%GUI
+        settings = default(settings, 'processed_directory', '/mnt/WaterColumnAcoustics/Processed_data');
+        settings = default(settings, 'alt_ev_dir',          '/mnt/WaterColumnAcoustics/Processed_data');    %GUI
+        settings = default(settings, 'alt_ev_files',        '/mnt/WaterColumnAcoustics/Processed_data');    %GUI
+        settings = default(settings, 'worksheet_directory', 'Echoview_worksheets');
+        settings = default(settings, 'HAC_directory',       'HAC_outputs');
+        settings = default(settings, 'echointegration_directory', 'echointegration_output');
+        settings = default(settings, 'echointegration_path', '');
+        settings = default(settings, 'merge_config',        'echoview_config.txt');	
+        settings = default(settings, 'merge_file',          'merge.csv');	%GUI
+        settings = default(settings, 'parse_file',          '');            %GUI
+        settings = default(settings, 'netcdf_file',         '/mnt/WaterColumnAcoustics/Processed_data/NetCDF/IMOS/');	%GUI
+        settings = default(settings, 'calibration_file',    '/mnt/CMAR-SHARE4/Groups/Acoustics/echoview_worksheet/SupplementaryCalibrationFiles/');	%GUI
+        settings = default(settings, 'voyage_inf',          '/mnt/WaterColumnAcoustics/Rawdata');	%GUI
+        settings = default(settings, 'metadata_file',       '');           
+        settings = default(settings, 'netcdf_directory',    '/mnt/WaterColumnAcoustics/Processed_data/NetCDF/IMOS/');	%GUI
+        settings = default(settings, 'ex_netcdf_directory', '/mnt/WaterColumnAcoustics/Processed_data/NetCDF/CSIRO/');	%GUI
+    	settings = default(settings, 'sst_path',            '/home/toolbox/local/csirolib:/home/eez_data/software/matlab');
+    	settings = default(settings, 'synTS_path',          { ...
+            '/home/datalib/climatologies/synTS/hindcast13/'; ...
+            '/home/datalib/climatologies/synTS/hindcast06/'; ...
+            '/home/datalib/climatologies/synTS/NRT06/'; ...
+            '/home/datalib/climatologies/synTS/NRT06_v1/'});
+        settings = default(settings, 'npp_path',            '/mnt/CMAR-SHARE4/Groups/Acoustics/generic_data_sets/primary_production');
+    end
+    
+    % processing controls
+    settings = default(settings, 'create_ev_files', 0, 1);                  %GUI
+    settings = default(settings, 'skip_ev_files', 0, 1);                  	%GUI
+    settings = default(settings, 'review_ev_files', 0, 1);                	%GUI
+    settings = default(settings, 'export_import_HAC', 0, 1);              	%GUI
+    settings = default(settings, 'export_HAC', 1, 1);                     	%GUI
+    settings = default(settings, 'import_HAC', 1, 1);                     	%GUI
+    settings = default(settings, 'export_sv', 0, 1);                     	%GUI
+    settings = default(settings, 'read_echointegration', 0, 1);             %GUI
+    settings = default(settings, 'merge', 0, 1);                          	%GUI-deprecated
+    settings = default(settings, 'read_merge', 0, 1);                     	%GUI-deprecated
+    settings = default(settings, 'read_netcdf', 0, 1);                    	%GUI
+    settings = default(settings, 'read_ecs', 0, 1);                      	%GUI
+    settings = default(settings, 'read_inf', 0, 1);                       	%GUI
+    settings = default(settings, 'read_meta', 0, 1);                       	%GUI
+    settings = default(settings, 'synTS', 0, 1);                         	%GUI
+    settings = default(settings, 'CARS', 0, 1);                         	%GUI
+    settings = default(settings, 'npp', 0, 1);                              %GUI
+    settings = default(settings, 'sound_speed', 0, 1);                    	%GUI
+    settings = default(settings, 'netcdf', 0, 1);                         	%GUI
+    settings = default(settings, 'extended', 0, 1);                      	%GUI
+    settings = default(settings, 'matlab_view', 0, 1);                   	%GUI
+    settings = default(settings, 'viz', 0, 1);                            	%GUI
+    
+    settings = default(settings, 'detect_seafloor', 1, 1);                  %GUI
+    settings = default(settings, 'detect_upper_DSL', 1, 1);                 %GUI
+    settings = default(settings, 'detect_fixed', 0, 1);                     %GUI
+    settings = default(settings, 'fixed_layer', 500);                       %GUI
+    settings = default(settings, 'create_alt_ev_files', 0, 1);            	%GUI
+    settings = default(settings, 'include_pitch', 0, 1);                  	%GUI
+    settings = default(settings, 'include_roll', 0, 1);                   	%GUI
+    settings = default(settings, 'use_alt_ev_files', 0, 1);               	%GUI
+    settings = default(settings, 'export_reference', 1, 1);               	%GUI
+    settings = default(settings, 'export_final', 1, 1);                    	%GUI                             
+    settings = default(settings, 'export_reject', 1, 1);                   	%GUI                              
+    settings = default(settings, 'review_metadata', 0, 1);                  %GUI       
+    settings = default(settings, 'review_ex_metadata', 0, 1);                              
+    settings = default(settings, 'overwrite', 1, 1);                              
+    settings = default(settings, 'single_format', 1, 1);                    %GUI 
+    
+    settings = default(settings, 'max_depth', 1200);                           
+    settings = default(settings, 'min_good', 0);                           
+
+    settings = default(settings, 'platform', '');                           %GUI
+    settings = default(settings, 'frequency', 38);                          %GUI
+    settings = default(settings, 'time_block', 6);                          %GUI
+    
+    settings = default(settings, 'verbosity', 2);
+    
+    settings = default(settings, 'frequencies', [38; 12; 120; 200]); 
+    
+    channels = cell(size(settings.frequencies));
+    for f = 1:length(settings.frequencies)
+        channels{f} = [ num2str(settings.frequencies(f)) 'kHz'];
+    end
+    settings = default(settings, 'channels', channels);
+    settings = default(settings, 'channel', settings.channels(1));
+    % list of HAC numbers process.
+    settings = default(settings, 'HAC', 1:5);                               %GUI
+    
+    % Adjustments
+    settings = default(settings, 'time_offset', 0);
+    
+    % Callback functions
+    settings = default(settings, 'progress', []);
+    
+    % meta data is an empty IMOS toolbox sample_data structure
+    % add expected fields so we can use IMOS's viewMetadata rather than
+    % write our own.
+    if ~isfield(settings, 'meta')
+        if exist('metadata.txt', 'file') == 2
+            settings.meta = read('metadata.txt');
+            settings.meta = rmfield(settings.meta, 'readfrom');
+        end
+        settings.meta.dimensions = {};
+        settings.meta.variables = {};
+        settings.meta.meta = {};
+    end
+    settings.meta.data_processing_by = [getenv('USER') getenv('username') ...
+        ' on ' getenv('HOSTNAME') getenv('computername') ' ' computer...
+        ' at ' datestr(now,'yyyy-mm-ddTHH:MM:SS') ' local'];
+    settings.meta.data_processing_software_version = settings.version;
+    
+    function s = default(s, field, value, nonempty)
+        if (nargin < 4)
+            nonempty = 0;
+        end
+        % set field to value if it does not already have a value.
+        if ~isfield(s, field) || (nonempty && isempty(s.(field)))
+            s.(field) = value;
+        end
+    end
+
+    function s = read(file,s)
+        % read fields from a text file with each line consisting of a
+        % field name and value surrounded by white space, values may be
+        % enclosed in double quotes (").
+        
+        s.readfrom = file;
+        
+        try
+            fid = fopen(file, 'rt');
+            if fid == -1, return; end
+            
+            params = textscan(fid, '%s%q%*[^\n]', ...
+                'commentStyle', '%');
+            fclose(fid);
+        catch e
+            if fid ~= -1, fclose(fid); end
+            rethrow(e);
+        end
+
+        fields = params{1};
+        vals = params{2};
+        for i=1:length(fields)
+            val = vals{i};
+            num = str2double(val);
+            if ~isnan(num);     val = num;      end
+            s = default(s,  fields{i}, val);
+        end
+    end
+end
+

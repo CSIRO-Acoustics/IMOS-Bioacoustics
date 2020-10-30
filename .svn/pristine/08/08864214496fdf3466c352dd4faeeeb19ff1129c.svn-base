@@ -1,0 +1,1218 @@
+head	1.16;
+access;
+symbols;
+locks
+	dun216:1.16; strict;
+comment	@# @;
+
+
+1.16
+date	2006.04.21.06.48.01;	author dun216;	state Exp;
+branches;
+next	1.15;
+
+1.15
+date	2004.06.02.01.32.24;	author dun216;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2002.04.10.01.58.12;	author dun216;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2001.07.06.04.38.49;	author dun216;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2001.07.06.03.32.50;	author dun216;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2001.06.20.04.10.30;	author dun216;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2001.06.01.00.27.28;	author dun216;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2000.12.07.04.15.27;	author dunn;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2000.12.07.04.14.24;	author dunn;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2000.08.24.00.13.37;	author dunn;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	99.12.05.23.39.19;	author dunn;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	99.07.29.01.36.28;	author dunn;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	99.07.29.01.36.08;	author dunn;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	98.06.25.01.31.54;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	97.04.17.05.49.54;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Extract a single layer from one of the netcdf map files.
+@
+
+
+1.16
+log
+@Afte r changes for CARS2005.
+@
+text
+@% GETMAP: Load maps to Matlab from netCDF file
+%
+% INPUT: property - unambiguous name (eg 'si' for "silicate")
+%        depth   - depth (in m) of map to extract (or level index if
+%                  not on depth levels)
+%  Optional....   (use [] if not required)
+%        fpath   - fpath to netCDF map file
+%        fname   - file name component, to build full name as follows:
+%                  filename = [fullproperty '_' fname '.nc']
+%                  {Only required if not accessing standard CARS}
+%        fill    - 1=value everywhere, instead of just above the sea bottom
+%        vars    - specify variables to return:
+%                  1=mn  2=an  3=sa  4=Xg  5=Yg  6=rq  7=details  8=nq  9=SD 
+%                  10=rmsmr  11=rmsr  12=bcnt  13=swgt  14=grid-index  
+%                  15=grid-depth
+%        regn    - [w e s n] limits of required region
+%
+% OUTPUT:  All optional....
+%         mn      - mean field
+%         an      - complex annual harmonics
+%         sa      - complex semiannual harmonics
+%         Xg,Yg   - lon and lat coords of grid
+%         rq      - data source radius (km) for mapping each grid point, OR
+%                   where -ve, is number of data points used 
+%         details - mapping details text string
+%         nq      - number of data used in mapping each point
+%         SD      - locally-weighted standard deviation of data
+%         rmsmr   - locally-weighted RMS of residuals wrt mean field
+%         rmsr    - locally-weighted RMS of residuals wrt mean and seasonal cyc
+%         bcnt    - number of data in bin (cell) surrounding grid point 
+%         swgt    - sum-of-weights from loess mapping
+% OR:
+%         as above, but in order specified in input argument "vars"
+%
+% Copyright (C) J R Dunn, CSIRO Marine Research  1999-2000
+%
+% USAGE: getmap  OR  getmap('t')    {display concise index of available maps}
+%
+%    OR: [mn,an,sa,Xg,Yg,rq,details,nq,SD,rmsmr,rmsr,bcnt,swgt] = ...
+%                                 getmap(property,depth,fpath,fname,fll,vars,regn)
+
+function varargout = getmap(property,depth,fpath,fname,fll,vars,regn)
+
+% MODS
+%    - Added new output arguments Xg Yg    (4/6/98)
+%    - Changed filename construction       (4/6/98)
+%    - spec depth instead of depth index   (30/8/00)
+%    - handles non-gridded (high-res) maps  (6/12/00)
+%    - use clname instead of having filename code here (1/6/01)
+%    - allow extraction of a subregion of a map (20/6/01)
+%    - handle non-isobaric maps  (2/6/04)
+%    - now ann & semi-ann can go to different depths (3/1/06)
+%    - add swgt retrieval  (20/1/06)
+%
+% $Id: getmap.m,v 1.15 2004/06/02 01:32:24 dun216 Exp dun216 $
+   
+ncquiet;
+varnm = {'mean','annual','semi_an','Xg','Yg','radius_q','map_details','nq',...
+	'std_dev','RMSspatialresid','RMSresid','bin_count','sumofwgts',...
+	'grid_index','grid_dep'};
+Xg = []; Yg = [];
+
+if nargin<2
+   disp('Less than 2 input arguments, so calling map_index for your info:');
+   if nargin==1 & ~isempty(property)
+      map_index(property);
+   else
+      map_index;
+   end
+   return
+end
+
+if isempty(depth)
+   depth = 0;
+end
+if nargin<3
+  fpath = [];
+end
+if nargin<4
+  fname = [];
+end
+if nargin<5 | isempty(fll)
+  fll = 0;
+end
+if nargin<6 | isempty(vars)
+   vars = 1:nargout;
+end
+if nargin<7
+  regn = [];
+end
+
+nout = min([length(vars) nargout]);
+varargout{nout} = [];
+
+[ncfile,ncf] = clname(property,fpath,fname);
+
+% For non-gridded files, 'grin' relates vector of values to the reconstructed
+% grid.  If a region is specified, 'igr' indexes the required region points
+% in the vector and 'grin' is sorted to index the same points in the 
+% reconstructed grid. ix & iy index the required region grid in the total grid. 
+
+grin = ncf{'grid_index'}(:);
+gridded = isempty(grin);
+
+[Xg,Yg] = getXgYg(ncf,Xg,Yg);
+Xsize = size(Xg);
+ix = []; iy = [];
+
+if ~isempty(regn)
+   ix = find(Xg(1,:)>=regn(1) & Xg(1,:)<=regn(2));
+   iy = find(Yg(:,1)>=regn(3) & Yg(:,1)<=regn(4));
+   if isempty(iy) | isempty(ix)
+      disp('GETMAP - specified region is entirely outside domain if maps')
+      return
+   end
+   if ~gridded
+      igr = find(Xg(grin)>=regn(1) & Xg(grin)<=regn(2) & Yg(grin)>=regn(3) ...
+		 & Yg(grin)<=regn(4));
+      grin = grin(igr);
+   end
+   Xg = Xg(iy,ix);
+   Yg = Yg(iy,ix);   
+elseif ~gridded
+   igr = 1:length(grin);
+end
+
+getall = (~gridded | isempty(regn));
+
+deps = ncf{'depth'}(:);
+if isempty(deps)
+   srfs = ncf{'level'}(:);
+   if isempty(srfs)
+      % Old isopycnal coord var
+      srfs = ncf{'surfaces'}(:);
+   end
+   if isempty(srfs)   
+      error([ncfile ' does not seem right! No depth or level variables'])
+   else
+      level = round(depth);
+      if level<1 | level>length(srfs)
+	 level = [];
+      end
+   end
+else
+   level = find(deps==round(depth));
+end
+
+if isempty(level)
+   error(['There is no map for depth ' num2str(depth) ' in file ' ncfile]);
+end
+
+
+d1max = length(ncf('depth_ann'));
+if d1max==0
+   % Old 2nd depth coord
+   d1max = length(ncf('depth_timefit'));
+   if d1max > 0
+      d2max = d1max;
+   end
+else
+   d2max = length(ncf('depth_semiann'));   
+end
+
+for kk = 1:nout
+   iv = vars(kk);
+   switch iv
+     case {2,11}
+       if level > d1max
+	  varargout{kk} = [];
+	  tmp = [];
+       elseif iv==2
+	  rpart = scget(ncf,'an_cos',level,iy,ix,getall);
+	  ipart = scget(ncf,'an_sin',level,iy,ix,getall);   
+	  tmp = rpart + i*ipart;
+       else
+	  tmp = scget(ncf,varnm{iv},level,iy,ix,getall);
+       end
+       
+     case 3
+       if level > d2max
+	  varargout{kk} = [];
+	  tmp = [];
+       else
+	  rpart = scget(ncf,'sa_cos',level,iy,ix,getall);
+	  ipart = scget(ncf,'sa_sin',level,iy,ix,getall);
+	  tmp = rpart + i*ipart;
+       end
+       
+     case {1,6,8,9,10,12,13,15}
+       if iv==15
+	  tmp = scget(ncf,varnm{iv},[],iy,ix,getall);
+       else
+	  tmp = scget(ncf,varnm{iv},level,iy,ix,getall);
+       end
+       
+     case 7
+       varargout{kk} = ncf{varnm{iv}}(:,level)';
+       
+     case 4
+       varargout{kk} = Xg;
+       
+     case 5
+       varargout{kk} = Yg;
+
+     case 14
+       varargout{kk} = grin;
+
+   end
+   if any([1:3 6 8:13 15]==iv)
+      if ~gridded & ~isempty(tmp)
+	 tmp2 = repmat(nan,Xsize);
+	 tmp2(grin) = tmp(igr);
+	 if isempty(regn)
+	    varargout{kk} = tmp2;
+	 else
+	    varargout{kk} = tmp2(iy,ix);
+	 end
+      else
+	 varargout{kk} = tmp;
+      end
+   end
+end
+
+
+
+if ~fll
+   gdp = ncf{'grid_dep'}(:);
+   % If grid_dep is not setup or initialised, gdp will be empty or
+   % fill-valued or zero valued.
+   if ~isempty(gdp) & any(gdp(:)>-32766) & ~all(gdp(:)==0)
+      if ~gridded
+	 tmp = repmat(nan,Xsize);
+	 tmp(grin) = gdp(igr);
+	 gdp = tmp;
+      end
+      if ~isempty(regn)
+	 gdp = gdp(iy,ix);
+      end
+      rr = find(gdp<level);
+      ij = find(ismember(vars,[1 2 3]));
+      for kk = ij(:)'
+	 if (vars(kk)==1 | level<=d1max | (vars(kk)==3 & level<=d2max)) ...
+		      & ~isempty(varargout{kk})
+	    varargout{kk}(rr) = repmat(NaN,size(rr));
+	 end
+      end
+   end
+end
+
+close(ncf);
+
+% --------------------------------------------------------------------
+function [X,Y] = getXgYg(ncf,Xg,Yg)
+   
+   if isempty(Xg)	  
+      X = ncf{'lon'}(:);
+      Y = ncf{'lat'}(:);
+      if min(size(X))==1
+	 [X,Y] = meshgrid(X,Y);
+      end
+   else
+      X = Xg;
+      Y = Yg;
+   end
+   return
+   
+% --------------------------------------------------------------------
+function vv = scget(ncf,varn,level,iy,ix,getall)
+
+fill = ncf{varn}.FillValue_(:);
+miss = ncf{varn}.missing_value(:);
+
+% Extract data WITHOUT scaling so that can detect flag values.
+% We look only for exact equality to the flag values because assume are only
+% checking integer data.
+
+ii = [];
+if isempty(level)
+   if getall
+      vv = ncf{varn}(:,:);
+   else
+      vv = ncf{varn}(iy,ix);
+   end
+else
+   if getall
+      vv = ncf{varn}(level,:,:);
+   else
+      vv = ncf{varn}(level,iy,ix);
+   end
+end
+
+if isempty(vv)
+   return
+end
+
+if ~isempty(fill)
+  ii = find(vv==fill);
+  % Avoid checking twice if missing and fill values are the same
+  if ~isempty(miss)
+    if miss==fill, miss = []; end
+  end
+end
+
+if ~isempty(miss) 
+  i2 = find(vv==miss);
+  ii = [ii(:); i2(:)];
+end
+
+% Now scale data, and overwrite any locations which held flag values.
+
+adof = ncf{varn}.add_offset(:);
+if isempty(adof)
+   adof = 0;
+end
+scf = ncf{varn}.scale_factor(:);
+if isempty(scf)
+   scf = 1;
+end
+
+vv = (vv*scf) + adof;
+
+if ~isempty(ii)
+  vv(ii) = repmat(NaN,size(ii));
+end
+
+% ------------ End of getmap -----------------------------------------
+@
+
+
+1.15
+log
+@Allow for non-isobaric maps.
+@
+text
+@d14 2
+a15 1
+%                  10=rmsmr  11=rmsr  12=bcnt  13=grid-index  14=grid-depth
+d19 1
+a19 1
+%         mn      - mean field (1/2 degree grid in [100 180 -50 0])
+d31 1
+d39 1
+a39 1
+%    OR: [mn,an,sa,Xg,Yg,rq,details,nq,SD,rmsmr,rmsr,bcnt] = ...
+d52 2
+d55 1
+a55 1
+% $Id: getmap.m,v 1.14 2002/04/10 01:58:12 dun216 Exp dun216 $
+d59 2
+a60 2
+	'std_dev','RMSspatialresid','RMSresid','bin_count','grid_index',...
+	'grid_dep'};
+d93 1
+d112 4
+d122 1
+a122 1
+   Yg = Yg(iy,ix);
+d131 1
+a131 1
+   srfs = ncf{'surfaces'}(:);
+d133 5
+a137 1
+      error([ncfile ' does not seem right! No depth or surfaces variables'])
+d152 10
+a161 3
+dtmax = length(ncf('depth_timefit'));
+if isempty(dtmax)
+   dtmax = 0;
+d167 2
+a168 2
+     case {2,3,11}
+       if level > dtmax
+d175 9
+a183 1
+       elseif iv==3
+a186 2
+       else
+	  tmp = scget(ncf,varnm{iv},level,iy,ix,getall);
+d189 2
+a190 2
+     case {1,6,8,9,10,12,14}
+       if iv==14
+d205 1
+a205 1
+     case 13
+d209 1
+a209 1
+   if any([1:3 6 8:12 14]==iv)
+d242 2
+a243 1
+	 if (vars(kk)==1 | level<=dtmax) & ~isempty(varargout{kk})
+@
+
+
+1.14
+log
+@Added new output variables, new grid_dep condition, and replaced inboth call
+with ismember, to increase portability.
+@
+text
+@d4 2
+a5 1
+%        depth   - depth (in m) of map to extract
+a34 2
+% ### NEW - extraction of a subregion of a map now possible (20/6/01)
+%
+d49 1
+d51 1
+a51 1
+% $Id: getmap.m,v 1.13 2001/07/06 04:38:49 dun216 Exp dun216 $
+d121 13
+a133 1
+level = find(deps==round(depth));
+d140 3
+d213 1
+a213 1
+      rr = find(gdp<dep_csl(depth));
+@
+
+
+1.13
+log
+@V 1.12 didn't fix bug - but it is now.
+@
+text
+@d13 1
+a13 1
+%                  10=rmsmr  11=rmsr  12=bcnt  13=grid-index
+d51 1
+a51 1
+% $Id: getmap.m,v 1.12 2001/07/06 03:32:50 dun216 Exp dun216 $
+d55 2
+a56 1
+	'std_dev','RMSspatialresid','RMSresid','bin_count'};
+d69 3
+d122 1
+d148 6
+a153 2
+     case {1,6,8,9,10,12} 
+       tmp = scget(ncf,varnm{iv},level,iy,ix,getall);
+d168 1
+a168 1
+   if any([1:3 6 8:12]==iv)
+d187 3
+a189 2
+   % If grid_dep is not setup or initialised, gdp will be empty or fill-valued.
+   if ~isempty(gdp) & any(gdp(:)>-32766)
+d199 1
+a199 1
+      ij = inboth(vars,[1 2 3]);
+d201 1
+a201 1
+	 if vars(kk)==1 | level<=dtmax
+d236 6
+a241 2
+if getall
+   vv = ncf{varn}(level,:,:);
+d243 5
+a247 1
+   vv = ncf{varn}(level,iy,ix);
+@
+
+
+1.12
+log
+@Bug for non-gridded maps - fixed.
+@
+text
+@d51 1
+a51 1
+% $Id: getmap.m,v 1.11 2001/06/20 04:10:30 dun216 Exp dun216 $
+d88 4
+a91 4
+% For non-gridded files, 'grin' relates vector of values to the reconstructed grid.
+% If a region is specified, 'igr' indexes the required region points in the vector
+% and 'grin' is sorted to index the same points in the reconstructed grid.
+% For gridded files, ix & iy index the required region in the grid.
+d97 3
+d110 2
+a111 3
+else
+   ix = []; iy = [];     % This signals to scget that entire field is required.
+   igr = 1:length(grin);   % This only needed if ~gridded
+a112 1
+Xsize = size(Xg);
+d114 1
+d132 2
+a133 2
+	  rpart = scget(ncf,'an_cos',level,iy,ix);
+	  ipart = scget(ncf,'an_sin',level,iy,ix);   
+d136 2
+a137 2
+	  rpart = scget(ncf,'sa_cos',level,iy,ix);
+	  ipart = scget(ncf,'sa_sin',level,iy,ix);
+d140 1
+a140 1
+	  tmp = scget(ncf,varnm{iv},level,iy,ix);
+d144 1
+a144 1
+       tmp = scget(ncf,varnm{iv},level,iy,ix);
+d179 1
+a179 1
+   if ~isempty(gdp) & any(any(gdp>-32766))
+d216 1
+a216 1
+function vv = scget(ncf,varn,level,iy,ix)
+d226 1
+a226 1
+if isempty(iy)
+@
+
+
+1.11
+log
+@Move filename construction to clname, and allow restriction of extracted map
+to a subregion.
+@
+text
+@d51 1
+a51 1
+% $Id: getmap.m,v 1.10 2001/06/01 00:27:28 dun216 Exp dun216 $
+d88 5
+a103 1
+      Xsize = size(Xg);
+d108 2
+a109 1
+   ix = []; iy = [];
+d111 2
+d161 5
+a165 1
+	 varargout{kk} = tmp2(iy,ix);
+d181 3
+a183 2
+	 gdp = tmp(iy,ix);
+      else
+@
+
+
+1.10
+log
+@*** empty log message ***
+@
+text
+@d14 1
+d34 1
+a34 1
+% ### NEW - handles non-gridded (high-res) maps  (6/12/00)
+d39 1
+a39 1
+%                                 getmap(property,depth,fpath,fname,fll,vars)
+d41 1
+a41 1
+function varargout = getmap(property,depth,fpath,fname,fll,vars)
+d48 4
+a51 2
+%   
+% $Id: getmap.m,v 1.9 2000/12/07 04:15:27 dunn Exp dunn $
+d68 2
+a69 2
+if nargin<3 | isempty(fpath)
+  fpath = '/home/eez_data/atlas/';
+d71 2
+a72 3
+  
+if nargin<4 | isempty(fname)
+  fname = 'cars2000';
+a73 1
+
+a76 1
+
+d80 3
+d86 1
+a86 21
+
+if strncmp(property,'t',1)
+  property = 'temperature';
+elseif strncmp(property,'o',1)
+  property = 'oxygen';
+elseif strncmp(property,'n',1)
+  property = 'nitrate';
+elseif strncmp(property,'p',1)
+  property = 'phosphate';
+elseif strncmp(property,'si',2)
+  property = 'silicate';
+elseif strncmp(property,'s',1)
+  property = 'salinity';
+end
+
+ncfile = [fpath property '_' fname '.nc'];
+
+ncf =  netcdf(ncfile,'nowrite');
+if isempty(ncf)
+   error(['Cannot open file ' ncfile]);
+end
+d92 14
+a114 1
+
+d118 1
+a118 1
+    case {2,3,11}
+d123 2
+a124 2
+	  rpart = scget(ncf,'an_cos',level);   
+	  ipart = scget(ncf,'an_sin',level);   
+d127 2
+a128 2
+	  rpart = scget(ncf,'sa_cos',level);
+	  ipart = scget(ncf,'sa_sin',level);
+d131 1
+a131 1
+	  tmp = scget(ncf,varnm{iv},level);
+d134 2
+a135 2
+    case {1,6,8,9,10,12} 
+       tmp = scget(ncf,varnm{iv},level);
+d137 1
+a137 1
+    case 7
+d140 1
+a140 1
+    case 4
+d143 1
+a143 1
+    case 5
+d146 1
+a146 1
+    case 13
+d152 3
+a154 2
+	 varargout{kk} = repmat(nan,size(Xg));
+	 varargout{kk}(grin) = tmp;
+d161 2
+d168 5
+a172 3
+	 tmp = repmat(nan,size(Xg));
+	 tmp(grin) = gdp;
+	 gdp = tmp;
+d179 1
+a179 1
+	 end	    
+d202 1
+a202 1
+function vv = scget(ncf,varn,level)
+d212 5
+a216 1
+vv = ncf{varn}(level,:,:);
+@
+
+
+1.9
+log
+@Mods to handle non-gridded maps, such as high-res 'coast8' series.
+@
+text
+@d48 1
+a48 1
+% $Id: getmap.m,v 1.7 2000/08/24 00:13:37 dunn Exp dunn $
+d111 1
+a111 1
+level = find(deps==depth);
+d154 7
+a160 3
+   if ~gridded & any([1:3 6 8:12]==iv) & ~isempty(tmp)
+      varargout{kk} = repmat(nan,size(Xg));
+      varargout{kk}(grin) = tmp;
+d168 5
+@
+
+
+1.8
+log
+@Changes from 30/8/00: esp specify depth in m instead of depth level index.
+@
+text
+@d13 1
+a13 1
+%                  10=rmsmr  11=rmsr  12=bcnt
+d31 1
+a31 1
+% Copyright (C) J R Dunn, CSIRO Marine Research  1999
+d33 1
+a33 1
+% ### NEW - extra stats variables, and definable order of outputs  (28/7/99)
+d46 1
+d78 1
+a78 1
+   vars = 1:12;
+d105 5
+d125 1
+d129 1
+a129 1
+	  varargout{kk} = rpart + i*ipart;
+d133 1
+a133 1
+	  varargout{kk} = rpart + i*ipart;
+d135 1
+a135 1
+	  varargout{kk} = scget(ncf,varnm{iv},level);
+d139 1
+a139 1
+       varargout{kk} = scget(ncf,varnm{iv},level);
+a144 1
+       [Xg,Yg] = getXgYg(ncf,Xg,Yg);
+d148 9
+a156 2
+       [Xg,Yg] = getXgYg(ncf,Xg,Yg);
+       varargout{kk} = Yg;     
+@
+
+
+1.7
+log
+@Add functionality to select filled or as-mapped data.
+@
+text
+@d4 1
+a4 1
+%        level   - std depth level to extract
+d38 1
+a38 1
+%                                 getmap(property,level,fpath,fname,vars)
+d40 1
+a40 1
+function varargout = getmap(property,level,fpath,fname,fll,vars)
+d45 3
+a47 2
+%
+% $Id: getmap.m,v 1.6 1999/12/05 23:39:19 dunn Exp dunn $
+d69 1
+a69 1
+  fname = 'maps';
+d104 6
+d116 1
+a116 1
+    case {2,3}
+d123 1
+a123 1
+       else
+d127 2
+d131 1
+a131 1
+    case {1,6,8,9,10,11,12} 
+d147 1
+a147 1
+if fll
+d149 9
+a157 6
+   rr = find(gdp<level);
+   ij = inboth(vars,[1 2 3]);
+   for kk = ij(:)'
+      if vars(kk)==1 | level<=dtmax
+	 varargout{kk}(rr) = repmat(NaN,size(rr));
+      end	    
+d160 1
+a160 1
+   
+@
+
+
+1.6
+log
+@Cut out BLANKBELOW code - reckon it was never used, and so an unnecessary complication.
+@
+text
+@d10 1
+d40 1
+a40 1
+function [o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11,o12] = getmap(property,level,fpath,fname,vars)
+d46 1
+a46 1
+% $Id: getmap.m,v 1.5 1999/07/29 01:36:28 dunn Exp dunn $
+d71 5
+a75 1
+if nargin<5 | isempty(vars)
+d103 1
+a103 1
+dtmax = max(size(ncf('depth_timefit')));
+d111 1
+a111 1
+	  tmp = [];
+d115 1
+a115 1
+	  tmp = rpart + i*ipart;
+d119 1
+a119 1
+	  tmp = rpart + i*ipart;
+d123 1
+a123 1
+       tmp = scget(ncf,varnm{iv},level);
+d126 1
+a126 1
+       tmp = ncf{varnm{iv}}(:,level)';
+d130 1
+a130 1
+       tmp = Xg;
+d134 1
+a134 2
+       tmp = Yg;
+     
+a135 3
+   
+   cmd = ['o' num2str(kk) '=tmp;'];
+   eval(cmd);
+d138 11
+@
+
+
+1.5
+log
+@Complete revamp, using netcdf toolbox and definable order of outputs.
+@
+text
+@d36 1
+a36 1
+%    OR: [mn,an,sa,Xg,Yg,rq,details,SD,rmsmr,rmsr,bcnt] = ...
+d45 1
+a45 1
+% $Id: getmap.m,v 1.3 1998/06/25 01:31:54 dunn Exp dunn $
+a47 1
+global BLANKBELOWBOT
+a117 1
+
+a118 4
+       if iv==1 & ~isempty(BLANKBELOWBOT)
+	  [Xg,Yg] = getXgYg(ncf,Xg,Yg);
+	  tmp = do_blanking(tmp,level,Xg,Yg);
+       end
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d5 1
+a5 1
+%  Optional....
+d10 3
+d14 2
+a15 2
+% OUTPUT: mn      - mean field (1/2 degree grid in [100 180 -50 0])
+% Optional....
+d22 7
+d30 3
+a32 2
+% Copyright (C) J R Dunn, CSIRO Division of Oceanography
+% $Id: getmap.m,v 1.3 1998/06/25 01:31:54 dunn Exp dunn $
+d34 1
+a34 2
+% ### NEW - Added new output arguments Xg Yg    (4/6/98)
+%         - Changed filename construction       (4/6/98)
+d36 2
+a37 1
+% USAGE: [mn,an,sa,Xg,Yg,rq,details] = getmap(property,level,fpath,fname)
+d39 1
+a39 1
+function [mn,an,sa,Xg,Yg,rq,details] = getmap(property,level,fpath,fname)
+d41 7
+d49 3
+d67 6
+a72 2
+if length(property)==1
+  property = [property ' '];
+d75 4
+a78 1
+if strcmp(property(1),'t')
+d80 1
+a80 1
+elseif strcmp(property(1),'o')
+d82 1
+a82 1
+elseif strcmp(property(1),'n')
+d84 1
+a84 1
+elseif strcmp(property(1),'p')
+d86 1
+a86 1
+elseif strcmp(property(1:2),'si')
+d88 1
+a88 1
+elseif strcmp(property(1),'s')
+a90 6
+  
+  
+if nargin<4 | isempty(fname)
+  fname = 'maps';
+end
+cdfile = [fpath property '_' fname];
+d92 49
+a140 4
+Xg = getnc(cdfile,'lon');
+Yg = getnc(cdfile,'lat');
+if min(size(Xg))==1
+  [Xg,Yg] = meshgrid(Xg,Yg);
+d143 19
+a161 1
+mn = getnc(cdfile,'mean',[level -1 -1],[level 1 1]);
+d163 2
+a164 3
+if ~isempty(BLANKBELOWBOT)
+  mn = do_blanking(mn,level,Xg,Yg);
+end
+d166 3
+a168 1
+if nargout > 1
+d170 2
+a171 9
+  % Find out whether these variables exist at this level
+  
+  [cdfid,rcode] =  mexcdf('ncopen',[cdfile '.nc'],'nowrite');
+  if rcode==-1 | cdfid==-1
+    error(['Cant open file ' ncfile]);
+  end
+  
+  dtid = mexcdf('ncdimid',cdfid,'depth_timefit');
+  [name,dtmax] = mexcdf('ncdiminq',cdfid,dtid);
+d173 3
+a175 1
+  semianid = mexcdf('ncvarid',cdfid,'sa_cos');
+d177 6
+a182 21
+  mexcdf('ncclose',cdfid);
+  
+  if level > dtmax
+    an = [];
+    sa = [];
+  else
+    rr = getnc(cdfile,'an_cos',[level -1 -1],[level 1 1]);
+    ii = getnc(cdfile,'an_sin',[level -1 -1],[level 1 1]);
+    an = rr + ii.*i;
+
+    if nargout > 2
+      if semianid == -1
+%	disp('There are no semiannual harmonics available');
+        sa = [];
+      else
+	rr = getnc(cdfile,'sa_cos',[level -1 -1],[level 1 1]);
+	ii = getnc(cdfile,'sa_sin',[level -1 -1],[level 1 1]);
+	sa = rr + ii.*i;
+      end
+    end  
+  end  
+d185 3
+a187 2
+if nargout > 5
+  rq = getnc(cdfile,'radius_q',[level -1 -1],[level 1 1]);
+d190 9
+a198 2
+if nargout > 6
+  details = getnc(cdfile,'map_details',[-1 level],[1 level])';
+d201 1
+a201 2
+% ------------ End of getmap -----------------------------------------
+
+d203 3
+d207 1
+@
+
+
+1.3
+log
+@Update for new filenames, and new do_blanking.
+@
+text
+@d21 1
+a21 1
+% $Id: getmap.m,v 1.1 1997/04/17 05:49:54 dunn Exp dunn $
+d32 11
+a42 3
+if nargin<3
+  fpath = '/home/eez_data/atlas/';
+elseif isempty(fpath)
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@a0 2
+function [mn,an,sa,rq,details] = getmap(property,level,path,cdfile)
+
+d4 1
+a4 1
+%        level    - std depth level to extract
+d6 4
+a9 2
+%        path     - path to netCDF map file
+%        cdfile   - input file name, if non-standard
+d15 1
+d23 6
+a28 1
+% USAGE: [mn,an,sa,rq,details] = getmap(property,level,path,cdfile)
+a31 5
+if nargin==0
+  disp('USAGE:  [mn,an,sa,rq,details] = getmap(property,level,path,cdfile)');
+  return
+end
+
+d33 3
+a35 1
+  path = '/home/eez_data/atlas/';
+d38 5
+a42 1
+if strncmp(property,'t',1)
+d44 1
+a44 1
+elseif strncmp(property,'o',1)
+d46 1
+a46 1
+elseif strncmp(property,'n',1)
+d48 1
+a48 1
+elseif strncmp(property,'p',1)
+d50 3
+a52 3
+elseif strncmp(property,'si',2)
+  property = 'silicate'
+elseif strncmp(property,'s',1)
+d57 2
+a58 4
+if nargin<4
+  cdfile = [path property '_maps'];
+else
+  cdfile = [path cdfile];
+d60 1
+d62 7
+a68 1
+mn = getcdf(cdfile,'mean',[level -1 -1],[level 1 1])';
+d71 1
+a71 1
+  mn = do_blanking(mn,level);
+a90 2
+%    disp(['Temporal harmonics available down to level ' num2str(dtmax)...
+%	    ' only.']);
+d94 2
+a95 2
+    rr = getcdf(cdfile,'an_cos',[level -1 -1],[level 1 1])';
+    ii = getcdf(cdfile,'an_sin',[level -1 -1],[level 1 1])';
+d103 2
+a104 2
+	rr = getcdf(cdfile,'sa_cos',[level -1 -1],[level 1 1])';
+	ii = getcdf(cdfile,'sa_sin',[level -1 -1],[level 1 1])';
+d111 2
+a112 2
+if nargout > 3
+  rq = getcdf(cdfile,'radius_q',[level -1 -1],[level 1 1])';
+d115 2
+a116 2
+if nargout > 4
+  details = getcdf(cdfile,'map_details',[level -1],[level 1])';
+d119 1
+a119 1
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+function [details,zi,rq,zi_an,zi_sa] = getmap(property,level,path,cdfile)
+d5 1
+a5 1
+% INPUT: property - long property name (eg 'salinity')
+d11 1
+a11 2
+% OUTPUT: details - mapping details text string
+%         zi      - mean field (1/2 degree grid in [100 180 -50 0])
+d13 2
+d17 1
+a17 2
+%         zi_an   - complex annual harmonics
+%         zi_sa   - complex semiannual harmonics
+d20 1
+a20 1
+% $Id: $
+d22 3
+a24 1
+% USAGE: [details,zi,rq,zi_an,zi_sa] = getmap(property,level,path,cdfile)
+d27 1
+a27 1
+  disp('USAGE:  [details,zi,rq,zi_an,zi_sa] = getmap(property,level,path)');
+d35 15
+d52 2
+d56 4
+a59 4
+details = getcdf(cdfile,'map_details',[level -1],[level 1])';
+zi = getcdf(cdfile,'mean',[level -1 -1],[level 1 1])';
+if nargout > 2
+  rq = getcdf(cdfile,'radius_q',[level -1 -1],[level 1 1])';
+d62 1
+a62 1
+if nargout > 3
+d79 4
+a82 2
+    disp(['Temporal harmonics available down to level ' num2str(dtmax)...
+	    ' only.']);
+d86 1
+a86 1
+    zi_an = rr + ii.*i;
+d88 1
+a88 1
+    if nargout > 4
+d90 2
+a91 1
+	disp('There are no semiannual harmonics available');
+d95 1
+a95 1
+	zi_sa = rr + ii.*i;
+d101 10
+a110 1
+  
+@

@@ -1,0 +1,16 @@
+S, platform_code        = 
+S, ship_name			= Paerangi
+S, ship_type			= Ship, fishing
+S, ship_code			= 
+S, ship_callsign		= ZMDS
+S, ship_alt_callsign	= LAZH
+S, ship_imo             = 9256664
+S, ship_operator		= Sealord
+S, ship_home_port       = Nelson
+N, ship_length          = 71.5
+N, ship_breadth         = 16
+N, ship_tonnage         = 5500
+N, ship_engine_power    = 
+S, ship_noise_design    = 
+S, ship_acknowledgement = Data collected by Sealord, http://www.sealord.co.nz/.
+S, ship_comments        = 

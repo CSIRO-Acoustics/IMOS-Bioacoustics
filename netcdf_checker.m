@@ -1,0 +1,214 @@
+function netcdf_checker (filename)
+%% About netcdf_checker
+%  NetCDF compliance checker for IMOS SOOP-BA files.
+%
+%% Syntax for usage
+%   o netcdf_checker(filename)
+%   o Usage example: netcdf_checker('IMOS_SOOP-BA_AE_20170930T072054Z_VJN4779_FV02_Corinthian-Bay-ES60-38_END-20171006T150415Z_C-20180513T225210Z.nc')
+%
+%% Description
+%  This function can be used to verify compliance of SOOP-BA NetCDF file
+%  with CF 1.6, IMOS 1.4 and ICES 1.10 conventions. User is warned about
+%  missing global attributes and variable attributes.
+% 
+%% Precondition
+%   o Need 3 text files containing mandatory 'global attributes' 
+%    (globalattribute.txt; globalattributeMF.txt; globaltovariableMF.txt)
+%
+%   o Need a text file containg 'variable' names (datavariables.txt)
+% 
+%   o These files are located at: Q:\IMOS_BASOOP\netcdf_checker_SOOPBA
+%  
+%   o Update these text files while adding new mandatory global
+%     attribute or new data variable
+% 
+%% Limitation
+%  This checker only verifies presence of mandatory attributes and accuracy
+%  is not evaluated.
+%
+%% Reference
+%  Based on 'SOOP-BA NetCDF Conventions, Version 2.3' 
+%  Available at: Q:\Reporting\NetCDF documents\SOOP-BA
+%
+%% Author
+%       Haris Kunnath <2018-06-04>
+
+%% Load text files containing mandatory global attributes and variable name
+
+    globalattribute = importdata('Q:\IMOS_BASOOP\netcdf_checker_SOOPBA\globalattribute.txt');
+    globalattributeMF = importdata('Q:\IMOS_BASOOP\netcdf_checker_SOOPBA\globalattributeMF.txt');
+    globaltovariableMF = importdata('Q:\IMOS_BASOOP\netcdf_checker_SOOPBA\globaltovariableMF.txt');
+    datavariables = importdata('Q:\IMOS_BASOOP\netcdf_checker_SOOPBA\datavariables.txt');
+
+%% Check mandatory global attributes for single frequency data
+
+    try
+        CHANNEL = ncinfo(filename,'CHANNEL');
+    catch
+        if ~exist('CHANNEL')
+            for i = 1: length(globalattribute)
+                attname = globalattribute{i};
+                try
+                    attname_temp = ncreadatt(filename, '/', attname);
+                catch
+                    disp(['                     mandatory global attribute is missing define: ' attname]); % keep aligned with process_BASOOP messages
+                end
+            end
+        end
+    end
+
+%% Check mandatory global attributes for multi-frequency data
+
+    if exist ('CHANNEL')
+        for ii = 1: length(globalattributeMF)
+            attnameMF = globalattributeMF{ii};
+            try
+                attnameMF_temp = ncreadatt(filename, '/', attnameMF);
+            catch
+                disp(['                     mandatory global attribute is missing define: ' attnameMF]);
+            end
+        end
+    end
+
+% Check global attributes that are variable for multi-frequency
+    if exist ('CHANNEL')
+        for iii = 1: length(globaltovariableMF)
+            gabv = globaltovariableMF{iii};
+            try
+               gabv_temp = ncinfo(filename,gabv); 
+            catch
+               disp(['                     mandatory global attribute is missing define: ' gabv]); 
+            end
+        end
+    end
+ 
+%% Check Coordinate variables and attributes for both single and multi-frequency
+
+    coordinatevariables={'LATITUDE','LONGITUDE','DEPTH'};
+
+    for j = 1: length(coordinatevariables)
+        cvar = coordinatevariables{j}; 
+
+        try
+            standard_name = ncreadatt(filename,cvar,'standard_name');
+        catch
+            disp(['                     attribute "standard_name" is missing for variable: ' cvar]);
+        end
+
+        try
+            long_name = ncreadatt(filename,cvar,'long_name');
+        catch
+            disp(['                     attribute "long_name" is missing for variable: ' cvar]);
+        end
+
+        try
+            units = ncreadatt(filename,cvar,'units');
+        catch
+            disp(['                     attribute "units" is missing for variable: ' cvar]);
+        end
+
+        try
+            axis = ncreadatt(filename,cvar,'axis');
+        catch
+            disp(['                     attribute "axis" is missing for variable: ' cvar]);
+        end
+
+        try
+            valid_min = ncreadatt(filename,cvar,'valid_min');
+        catch
+            disp(['                     attribute "valid_min" is missing for variable: ' cvar]);
+        end
+
+        try
+            valid_max = ncreadatt(filename,cvar,'valid_max');
+        catch
+            disp(['                     attribute "valid_max" is missing for variable: ' cvar]);
+        end
+
+        try
+            reference_datum = ncreadatt(filename,cvar,'reference_datum');
+        catch
+            disp(['                     attribute "reference_datum" is missing for variable: ' cvar]);
+        end
+    end
+
+% Check 'positive' attribute for DEPTH
+    try
+        positive = ncreadatt(filename,'DEPTH','positive');
+    catch
+        disp(['                     attribute "positive" is missing for variable: DEPTH']);
+    end
+
+% Check 'TIME' variable
+    try
+        standard_name = ncreadatt(filename,'TIME','standard_name');
+    catch
+        disp(['                     attribute "standard_name" is missing for variable: TIME']);
+    end
+  
+    try
+        long_name = ncreadatt(filename,'TIME','long_name');
+    catch
+        disp(['                     attribute "long_name" is missing for variable: TIME']);
+    end
+    
+    try
+        units = ncreadatt(filename,'TIME','units');
+    catch
+        disp(['                     attribute "units" is missing for variable: TIME']);
+    end
+   
+    try
+        axis = ncreadatt(filename,'TIME','axis');
+    catch
+        disp(['                     attribute "axis" is missing for variable: TIME']);
+    end
+    
+    try
+        valid_min = ncreadatt(filename,'TIME','valid_min');
+    catch
+        disp(['                     attribute "valid_min" is missing for variable: TIME']);
+    end
+    
+    try
+        valid_max = ncreadatt(filename,'TIME','valid_max');
+    catch
+        disp(['                     attribute "valid_max" is missing for variable: TIME']);
+    end
+
+    try
+        calendar = ncreadatt(filename,'TIME','calendar');
+    catch
+        disp(['                     attribute "calendar" is missing for variable: TIME']);
+    end
+    
+%% Check data variables for single and multi-frequency
+    
+    for k = 1: length(datavariables)
+            dvar = datavariables{k}; 
+
+        try
+            long_name = ncreadatt(filename,dvar,'long_name');
+        catch
+            disp(['                     attribute "long_name" is missing for variable: ' dvar]);
+        end
+
+        try
+            units = ncreadatt(filename,dvar,'units');
+        catch
+            disp(['                     attribute "units" is missing for variable: ' dvar]);
+        end
+
+        try
+            valid_min = ncreadatt(filename,dvar,'valid_min');
+        catch
+            disp(['                     attribute "valid_min" is missing for variable: ' dvar]);
+        end
+
+        try
+            valid_max = ncreadatt(filename,dvar,'valid_max');
+        catch
+            disp(['                     attribute "valid_max" is missing for variable: ' dvar]);
+        end
+    end   
+end

@@ -1,0 +1,1371 @@
+head	1.13;
+access;
+symbols;
+locks
+	dun216:1.13; strict;
+comment	@# @;
+
+
+1.13
+date	2006.04.20.05.31.54;	author dun216;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2002.04.10.02.35.37;	author dun216;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2001.08.16.02.28.58;	author dun216;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2000.08.24.00.12.12;	author dunn;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	99.02.10.22.56.29;	author dunn;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	98.06.25.01.27.12;	author dunn;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	98.05.06.04.13.53;	author dunn;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	98.05.05.01.56.35;	author dunn;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	98.05.04.06.29.24;	author dunn;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	98.02.23.00.24.33;	author dunn;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	97.08.14.06.43.21;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	97.04.17.05.49.01;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Extract a 3D chunk from one of the netcdf map files.
+@
+
+
+1.13
+log
+@Update for CARS2005
+@
+text
+@% GETCHUNK: Extract a 3D chunk of a netCDF file map
+% INPUT:
+%    property - property name (eg 'salinity' or just 's')
+%  Optional....
+%    deps    - depths (in +ve m, sorted, no duplicates) of levels to extract
+%    region  - [w e s n] boundaries of maps to extract
+%    pth     - path to netCDF map file (including trailing "/")
+%    fname   - input file name component, if not 'cars2000'. Full name is built as
+%              follows:    filename = [fullproperty '_' fname '.nc']
+%                eg: property='s', fname='v1'  then filename='salinity_v1.nc'
+%    opt       1= [default] return lat/lon for x,y
+%              2= return grid indices (ix,iy) for x,y
+%              -1 or -2: as above, but return empty args for all except mn,x,y
+%    fll       0= [default] values only where mapped - not below seafloor
+%              1= values extrapolated to the coast at all depths
+%
+% OUTPUT:   Matlab 5   (Note: depth is the right-hand index)
+%    mn     - [nlat,nlon,ndep] mean field (1/2 degree grid in [100 180 -50 0])
+% Optional....
+%    an     - [nlat,nlon,ndep] complex annual harmonics, [] if none available
+%    sa     - [nlat,nlon,ndep] complex semiannual harmonics, "  "  "   " 
+%    rq     - [nlat,nlon,ndep] data source radius (km)
+%    dets   - [ndep,det_len] mapping details text strings
+%                opt = 1                         opt = 2    [see 'opt' above])
+%    x      - [nlat,nlon] longitudes         [nlon] map grid coords
+%    y      - [nlat,nlon] latitudes          [nlat] map grid coords
+%
+% * If ONLY ONE DEPTH specified, 3D outputs collapse to 2D.
+% * Matlab Version 4:  Output dimensions are [ndep,ngrid]
+%
+% Copyright (C) J R Dunn, CSIRO Marine Research
+% $Id: getchunk.m,v 1.12 2002/04/10 02:35:37 dun216 Exp dun216 $
+%
+% Eg:  [mn,a1,a2,a3,a4,x,y]= getchunk('t',[0 10 20 50],[90 100 -40 0],[],[],-1,1);
+% 
+% USAGE: [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,pth,fname,opt,fll)
+
+function [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,pth,fname,opt,fll)
+
+if nargin<7 | isempty(fll)
+   fll = 0;
+end
+
+if nargin<6 | isempty(opt)
+  opt = 1;
+end
+  
+if nargin<5 
+   fname = [];
+end
+if nargin<4
+   pth = [];
+end
+
+cdfile = clname(property,pth,fname);
+  
+if nargin<3; region=[]; end
+
+
+getan = 0; an = [];
+getsa = 0; sa = [];
+
+% Check existence of any requested data
+
+[fid,rcode] = ncmex('ncopen',[cdfile '.nc'],'nowrite');
+if rcode==-1 | fid==-1
+  error(['Cant open file ' cdfile]);
+end
+
+% Must allow for non-contiguous vector of depths
+
+depths = round(getnc(cdfile,'depth'));
+if nargin<2 | isempty(deps)
+   deps = depths;
+else
+   deps = round(deps(:)');
+end
+ndep = length(deps);
+
+[tmp,idin,idout] = intersect(depths,deps);
+if length(idout)<ndep
+   jj = 1:ndep;
+   jj(idout) = [];
+   disp([7 'These depths are not present in this file: ' num2str(deps(jj))]);
+end
+dep1 = idin(1);
+depn = idin(end);
+idin = 1+idin-(dep1);
+
+if nargout > 1 & opt>=0
+  % Find out at what depths these variables exist  
+  varid = ncmex('ncvarid',fid,'an_cos');
+  if varid == -1
+     disp('No temporal info.');
+  else     
+     dtid = ncmex('ncdimid',fid,'depth_ann');
+     pre06 = (dtid<=0);
+     if pre06
+	dtid = ncmex('ncdimid',fid,'depth_timefit');
+     end
+     [name,dtmax] = ncmex('ncdiminq',fid,dtid);
+     [tmp,itin,ito1] = intersect(depths(1:dtmax),deps);
+     if ~isempty(itin)
+	tep1 = itin(1);
+	tepn = itin(end);
+	itin = 1+itin-(tep1);
+	getan = 1;
+	varid = ncmex('ncvarid',fid,'sa_cos');
+	if nargout > 2 & varid ~= -1
+	   if pre06
+	      getsa = 1;
+	      tep2 = tep1;
+	      tepn2 = tepn;
+	      ito2 = ito1;
+	      itin2 = itin;	      
+	   else
+	      dtid = ncmex('ncdimid',fid,'depth_semiann');
+	      [name,dmax2] = ncmex('ncdiminq',fid,dtid);		 
+	      [tmp,itin2,ito2] = intersect(depths(1:dmax2),deps);
+	      if ~isempty(itin2)
+		 tep2 = itin2(1);
+		 tepn2 = itin2(end);
+		 itin2 = 1+itin2-(tep2);
+		 getsa = 1;
+	      end
+	   end
+	end
+     end
+  end
+else
+  rq = [];
+  dets = [];
+end
+
+if ~fll
+   varid = ncmex('ncvarid',fid,'grid_dep');
+   if varid < 0
+      fll = 1;
+   end
+end
+
+ncmex('ncclose',fid);
+
+
+
+Xg = getnc(cdfile,'lon');
+Yg = getnc(cdfile,'lat');
+if min(size(Xg))==1
+   [Xg,Yg] = meshgrid(Xg,Yg);
+end
+
+
+% ----------------------------------------------------------------------
+% Note that we permute order of outputs for compatibility with earlier version
+% of this script (which is a pain in the bum).
+
+if isempty(region)
+   x1 = 1; y1 = 1;
+   x2 = length(Xg(1,:));
+   y2 = length(Yg(:,1));
+else
+   % Note that even for rotated grids this will find the minimum 
+   % grid-rectangular area enclosing all of 'region'
+   [iy,ix] = find(Yg>=region(3)& Yg<=region(4)& Xg>=region(1)& Xg<=region(2));
+   y1 = min(iy); y2 = max(iy);
+   x1 = min(ix); x2 = max(ix);
+end
+
+ny = 1+y2-y1;
+nx = 1+x2-x1;
+  
+
+% getnc outputs are 3D unless the depth dimension is scalar.
+% Get mean and shape it. DIMS is a function at the end of this file
+
+tmp = getnc(cdfile,'mean',[dep1 y1 x1],[depn y2 x2],-1,-2,2,0,0);
+if dims(tmp)==1
+   mn = reshape(tmp,[ny nx]);
+elseif dims(tmp)==2
+   mn = tmp';
+else
+   mn = repmat(nan,[ny nx ndep]);
+   mn(:,:,idout) = permute(tmp(:,:,idin),[2 1 3]);
+end
+
+if ~fll
+   gdp = getnc(cdfile,'grid_dep',[y1 x1],[y2 x2],-1,-2,2,0,0)';   
+   for ii = 1:ndep
+      rr = find(gdp<dep_csl(deps(ii),2));
+      tmp = mn(:,:,ii);
+      tmp(rr) = repmat(NaN,size(rr));
+      mn(:,:,ii) = tmp;
+   end
+end
+mn = squeeze(mn);
+
+if getan
+   vcos = getnc(cdfile,'an_cos',[tep1 y1 x1],[tepn y2 x2],-1,-2,2,0,0);
+   vsin = getnc(cdfile,'an_sin',[tep1 y1 x1],[tepn y2 x2],-1,-2,2,0,0);
+   if dims(vcos)==1
+      an = reshape(vcos+vsin.*i,[ny nx]);
+   elseif dims(vcos)==2
+      an = vcos' + vsin'.*i;
+   else
+      an = repmat(nan+i*nan,[ny nx ndep]);
+      %an(:,:,ito1) = permute(vcos(:,:,itin)+vsin(:,:,itin).*i,[2 1 3]);
+      an = permute(vcos(:,:,itin)+vsin(:,:,itin).*i,[2 1 3]);
+   end  
+   if ~fll
+      rr = find(isnan(mn(:,:,ito1)));
+      an(rr) = NaN;
+   end
+   an = squeeze(an);
+end
+
+if getsa
+   vcos = getnc(cdfile,'sa_cos',[tep2 y1 x1],[tepn2 y2 x2],-1,-2,2,0,0);
+   vsin = getnc(cdfile,'sa_sin',[tep2 y1 x1],[tepn2 y2 x2],-1,-2,2,0,0);
+   if dims(vcos)==1
+      sa = reshape(vcos+vsin.*i,[ny nx]);
+   elseif dims(vcos)==2
+      sa = vcos' + vsin'.*i;
+   else
+      sa = repmat(nan+i*nan,[ny nx ndep]);
+      %sa(:,:,ito2) = permute(vcos(:,:,itin2)+vsin(:,:,itin2).*i,[2 1 3]);
+      sa = permute(vcos(:,:,itin2)+vsin(:,:,itin2).*i,[2 1 3]);
+   end  
+   if ~fll
+      rr = find(isnan(mn(:,:,ito2)));
+      sa(rr) = NaN;
+   end
+   sa = squeeze(sa);
+end
+
+if nargout>3 & opt>=0
+  varid = ncmex('ncvarid',fid,'radius_q');
+  if varid == -1
+     rq = zeros(size(mn));
+  else
+     tmp = getnc(cdfile,'radius_q',[dep1 y1 x1],[depn y2 x2],-1,-2,2,0,0);
+     if dims(tmp)==1
+	rq = reshape(tmp,[ny nx]);
+     elseif dims(tmp)==2
+	rq = tmp';
+     else
+	rq = repmat(nan,[ny nx ndep]);
+	rq(:,:,idout) = permute(tmp(:,:,idin),[2 1 3]);
+     end
+     rq = squeeze(rq);
+  end
+end
+  
+
+if nargout>4 & opt>=0
+   dets = repmat(' ',[ndep 1]);
+   dtid = ncmex('ncdimid',fid,'detail_string');
+   if dtid > 0
+      [name,dtmp] = ncmex('ncdiminq',fid,dtid);
+      if dtmp > 0
+	 tmp = getnc(cdfile,'map_details',[-1 dep1],[1 depn],-1,-2);
+	 if dims(tmp)==1
+	    tmp = tmp';
+	 end
+	 nx = size(tmp,2);
+	 dets = repmat(' ',[ndep nx]);
+	 dets(idout,:) = squeeze(tmp(idin,:));
+      end
+   end
+end
+
+if nargout > 5
+   if abs(opt)==2
+      y = y1:y2;
+      x = x1:x2;
+   else
+      x = Xg(y1:y2,x1:x2);
+      y = Yg(y1:y2,x1:x2);
+   end
+end
+
+% --------------------------------------------------------------
+@
+
+
+1.12
+log
+@Replace inboth calls with "intersect" calls, ro improve portability.
+@
+text
+@d7 1
+a7 1
+%    path    - path to netCDF map file (including trailing "/")
+d10 2
+a11 2
+%            eg: property='s', fname='v1'  then filename='salinity_v1.nc'
+%    opt     - 1= [default] return lat/lon for x,y
+d32 1
+a32 1
+% $Id: getchunk.m,v 1.11 2001/08/16 02:28:58 dun216 Exp dun216 $
+d36 1
+a36 1
+% USAGE: [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,fname,opt,fll)
+d38 1
+a38 1
+function [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,fname,opt,fll)
+d44 9
+a52 2
+if length(property)==1
+  property = [property ' '];
+d55 1
+a55 13
+if strcmp(property(1),'t')
+  property = 'temperature';
+elseif strcmp(property(1),'o')
+  property = 'oxygen';
+elseif strcmp(property(1),'n')
+  property = 'nitrate';
+elseif strcmp(property(1),'p')
+  property = 'phosphate';
+elseif strcmp(property(1:2),'si')
+  property = 'silicate';
+elseif strcmp(property(1),'s')
+  property = 'salinity';
+end
+a56 2
+% Must allow for non-contiguous vector of depths
+
+a58 9
+if nargin<4 | isempty(path)
+  path = '/home/eez_data/atlas/';
+end
+
+if nargin<5 | isempty(fname)
+  fname='cars2000';
+end
+
+cdfile = [path property '_' fname];
+a59 4
+if nargin<6 | isempty(opt)
+  opt = 1;
+end
+  
+d70 2
+d76 1
+a76 1
+   deps = round(deps);
+d95 6
+a100 2
+  else
+     dtid = ncmex('ncdimid',fid,'depth_timefit');
+d102 1
+a102 1
+     [tmp,itin,itout] = intersect(depths(1:dtmax),deps);
+d110 17
+a126 1
+	   getsa = 1;
+d189 1
+a189 1
+      rr = find(gdp<dep_csl(deps(ii)));
+d206 2
+a207 1
+      an(:,:,itout) = permute(vcos(:,:,itin)+vsin(:,:,itin).*i,[2 1 3]);
+d210 2
+a211 2
+      rr = find(isnan(mn));
+      an(rr) = repmat(NaN,size(rr));
+d217 2
+a218 2
+   vcos = getnc(cdfile,'sa_cos',[tep1 y1 x1],[tepn y2 x2],-1,-2,2,0,0);
+   vsin = getnc(cdfile,'sa_sin',[tep1 y1 x1],[tepn y2 x2],-1,-2,2,0,0);
+d225 2
+a226 1
+      sa(:,:,itout) = permute(vcos(:,:,itin)+vsin(:,:,itin).*i,[2 1 3]);
+d229 2
+a230 2
+      rr = find(isnan(mn));
+      sa(rr) = repmat(NaN,size(rr));
+d236 15
+a250 10
+   tmp = getnc(cdfile,'radius_q',[dep1 y1 x1],[depn y2 x2],-1,-2,2,0,0);
+   if dims(tmp)==1
+      rq = reshape(tmp,[ny nx]);
+   elseif dims(tmp)==2
+      rq = tmp';
+   else
+      rq = repmat(nan,[ny nx ndep]);
+      rq(:,:,idout) = permute(tmp(:,:,idin),[2 1 3]);
+   end
+   rq = squeeze(rq);
+d253 1
+d255 13
+a267 3
+   tmp = getnc(cdfile,'map_details',[-1 dep1],[1 depn],-1,-2);
+   if dims(tmp)==1
+      tmp = tmp';
+a268 3
+   nx = size(tmp,2);
+   dets = repmat(' ',[ndep nx]);
+   dets(idout,:) = squeeze(tmp(idin,:));
+a280 1
+
+a281 8
+% DIMS  Improvement on ndim in that 1-D objects are identified 
+
+function ndim = dims(A)
+
+ndim = length(size(A));
+if ndim==2 & min(size(A))<2
+   ndim = 1;
+end
+@
+
+
+1.11
+log
+@A host of changes over the last year. About to add improvements to header doc.
+@
+text
+@d5 4
+a8 4
+%    deps    - depths (in +ve m, sorted) of levels to extract
+%    region  - [w e s n] boundaries included in data extracted
+%    path    - path to netCDF map file
+%    fname   - input file name component, if non-CARS. Full name is built as
+d10 3
+a12 3
+%            eg: property='s', fname='maps'  then filename='salinity_maps.nc'
+%    opt     - 1: [default] return lat/lon for x,y
+%              2: return grid indices (ix,iy) for x,y
+d14 2
+a15 1
+%    fll       1 = get filled version (values everywhere outside of land areas)
+d31 2
+a32 2
+% Copyright (C) J R Dunn, CSIRO Division of Marine Research
+% $Id: getchunk.m,v 1.10 2000/08/24 00:12:12 dunn Exp dunn $
+d34 2
+d90 1
+a90 1
+depths = getnc(cdfile,'depth');
+d93 2
+d96 1
+d98 1
+a98 2
+[idin,idout] = inboth_rough(depths,deps,1);
+ndep = length(deps);
+d102 1
+a102 2
+   disp(['These depths are not present in this file: ' num2str(deps(jj))]);
+   bell
+d116 1
+a116 1
+     [itin,itout] = inboth(depths(1:dtmax),deps);
+@
+
+
+1.10
+log
+@Add functionality to select filled or as-mapped data, and remove V4 code.
+@
+text
+@d5 1
+a5 1
+%    deps    - scalar or vector of std depth levels to extract 
+d31 1
+a31 1
+% $Id: getchunk.m,v 1.9 1999/02/10 22:56:29 dunn Exp dunn $
+d68 1
+a68 1
+  fname='cars2.0';
+d87 1
+d89 1
+a89 3
+   dtid = ncmex('ncdimid',fid,'depth');
+   [name,dmax] = ncmex('ncdiminq',fid,dtid);
+   deps = 1:dmax;
+d91 2
+d94 9
+a102 2
+dep1 = deps(1);
+depn = deps(ndep);
+d108 1
+a108 1
+    disp('No temporal info.');
+d110 13
+a122 9
+    dtid = ncmex('ncdimid',fid,'depth_timefit');
+    [name,dtmax] = ncmex('ncdiminq',fid,dtid);
+    if dtmax>=dep1
+      getan = 1;
+      varid = ncmex('ncvarid',fid,'sa_cos');
+      if nargout > 2 & varid ~= -1
+	getsa = 1;
+      end
+    end
+d143 1
+a143 1
+  [Xg,Yg] = meshgrid(Xg,Yg);
+d151 11
+a161 1
+  didx = deps+1-dep1;
+d163 2
+a164 13
+  if isempty(region)
+    x1 = 1; y1 = 1;
+    x2 = length(Xg(1,:));
+    y2 = length(Yg(:,1));
+  else
+    % Note that even for rotated grids this will find the minimum 
+    % grid-rectangular area enclosing all of 'region'
+    [iy,ix] = find(Yg>=region(3)& Yg<=region(4)& Xg>=region(1)& Xg<=region(2));
+    y1 = min(iy); y2 = max(iy);
+    x1 = min(ix); x2 = max(ix);
+  end
+  ny = 1+y2-y1;
+  nx = 1+x2-x1;
+a165 9
+  % Get mean and shape it. DIMS is a function at the end of this file
+  mn = getnc(cdfile,'mean',[dep1 y1 x1],[depn y2 x2],-1,-2,2,0,0);
+  if dims(mn)==1
+     mn = reshape(mn,[ny nx]);
+  elseif dims(mn)==2
+     mn = mn';
+  else
+     mn = permute(mn(:,:,didx),[2 1 3]);
+  end
+d167 23
+a189 9
+  if ~fll
+     gdp = getnc(cdfile,'grid_dep',[y1 x1],[y2 x2],-1,-2,2,0,0)';
+     for ii = 1:length(deps)
+	rr = find(gdp<deps(ii));
+	tmp = mn(:,:,ii);
+	tmp(rr) = repmat(NaN,size(rr));
+	mn(:,:,ii) = tmp;
+     end
+  end
+d191 17
+a207 18
+  if getan
+    vcos = getnc(cdfile,'an_cos',[dep1 y1 x1],[dtmax y2 x2],-1,-2,2,0,0);
+    vsin = getnc(cdfile,'an_sin',[dep1 y1 x1],[dtmax y2 x2],-1,-2,2,0,0);
+    dtidx = deps(find(deps<=dtmax))+1-dep1;
+    if dtmax<depn
+      an = repmat(NaN+i*NaN,[ny nx ndep]);
+    end
+    if ndims(vcos)==2
+      an(:,:,1) = vcos' + vsin'.*i;      % Works, even if an is 2D only.
+    else
+      an(:,:,1:length(dtidx)) = permute(...
+	  vcos(:,:,dtidx) + vsin(:,:,dtidx).*i,[2 1 3]);
+    end  
+    if ~fll
+       rr = find(isnan(mn));
+       an(rr) = repmat(NaN,size(rr));
+    end
+  end
+d209 17
+a225 17
+  if getsa
+    vcos = getnc(cdfile,'sa_cos',[dep1 y1 x1],[dtmax y2 x2],-1,-2,2,0,0);
+    vsin = getnc(cdfile,'sa_sin',[dep1 y1 x1],[dtmax y2 x2],-1,-2,2,0,0);
+    if dtmax<depn
+      sa = repmat(NaN+i*NaN,[ny nx ndep]);
+    end
+    if ndims(vcos)==2
+      sa(:,:,1) = vcos' + vsin'.*i;      % Works, even if sa is 2D only.
+    else
+      sa(:,:,1:length(dtidx)) = permute(...
+	  vcos(:,:,dtidx) + vsin(:,:,dtidx).*i,[2 1 3]);
+    end  
+    if ~fll
+       rr = find(isnan(mn));
+       sa(rr) = repmat(NaN,size(rr));
+    end
+  end
+d227 12
+a238 10
+  if nargout>3 & opt>=0
+    rq = getnc(cdfile,'radius_q',[dep1 y1 x1],[depn y2 x2],-1,-2,2,0,0);
+    if dims(rq)==1
+       rq = reshape(rq,[ny nx]);
+    elseif dims(rq)==2
+       rq = rq';
+    else
+      rq = permute(rq(:,:,didx),[2 1 3]);
+    end
+  end
+d240 9
+a248 4
+  if nargout>4 & opt>=0
+    dets = getnc(cdfile,'map_details',[-1 dep1],[1 depn],-1,-2);
+    dets = dets(didx,:);
+  end
+d250 2
+a251 2
+  if nargout > 5
+    if abs(opt)==2
+d254 1
+a254 1
+    else
+d257 2
+a258 2
+    end
+  end
+@
+
+
+1.9
+log
+@Catch one more output-shape problem (1-D outputs not consistent).
+@
+text
+@d14 1
+d31 1
+a31 1
+% $Id: getchunk.m,v 1.8 1998/06/25 01:27:12 dunn Exp dunn $
+d33 1
+a33 1
+% USAGE: [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,fname,opt)
+d35 1
+a35 1
+function [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,fname,opt)
+d37 3
+a39 1
+global BLANKBELOWBOT
+d54 1
+a54 1
+  property = 'silicate'
+a59 8
+if nargin<2; deps=[]; end
+if isempty(deps)
+  deps = 1:33;
+end
+ndep = length(deps);
+dep1 = deps(1);
+depn = deps(ndep);
+
+d68 1
+a68 1
+  fname='maps';
+d80 1
+a80 1
+% --- Get grid and check existence of any requested data
+d87 9
+d117 7
+d126 2
+a135 1
+% Make use of higher dimensional output with version 5
+a138 4
+vers=version;
+
+if strcmp(vers(1),'5')
+
+d159 1
+a159 1
+  elseif dims(mn)==1
+d164 9
+a172 9
+  
+  if ~isempty(BLANKBELOWBOT)
+    if ndims(mn)==2
+      mn = do_blanking(mn,dep1,Xg(y1:y2,x1:x2),Yg(y1:y2,x1:x2));
+    else
+      for ii=1:ndep
+	mn(:,:,ii) = do_blanking(mn(:,:,ii),deps(ii),Xg(y1:y2,x1:x2),Yg(y1:y2,x1:x2));
+      end
+    end
+d188 4
+d206 4
+d224 1
+a224 1
+    dets = getnc(cdfile,'map_details',[-1 dep1],[1 depn],-1,-2)';
+a237 73
+else     % ------------------------------------------------------------------
+         % version 4 case
+
+  dets = [];
+  if nargout > 3
+    getrq = 1;
+  else
+    getrq = 0;
+  end
+
+  [Xg Yg]=meshgrid(Xg,Yg);
+
+  if isempty(region)
+    ii = 1:prod(size(Xg));
+  else
+    ii = find(Xg>=region(1) & Xg<=region(2) & Yg>=region(3) & Yg<=region(4));
+    ii = ii(:)';
+  end
+  ngrid = length(ii);
+  
+  mn = NaN*ones(ndep,ngrid);
+  if getan
+    an = mn + i*mn;
+  end
+  if getsa
+    sa = mn + i*mn;
+  end
+  if getrq
+    rq = mn;
+  end
+
+  if nargout > 5
+    x = Xg(ii);
+    y = Yg(ii);
+  end
+
+
+  for jj = 1:ndep
+  
+    dep = deps(jj);
+
+    dtmp = getcdf(cdfile,'map_details',[dep -1],[dep 1]);
+    dets = [dets; dtmp(:)']; 
+
+    zi = getcdf(cdfile,'mean',[dep -1 -1],[dep 1 1])';
+    if ~isempty(BLANKBELOWBOT)
+      zi = do_blanking(zi,dep,Xg(y1:y2,x1:x2),Yg(y1:y2,x1:x2));
+    end
+    mn(jj,:) = zi(ii);
+
+    if getrq
+      tmp = getcdf(cdfile,'radius_q',[dep -1 -1],[dep 1 1])';
+      rq(jj,:) = tmp(ii);
+    end
+  
+    if getan
+      if dep <= dtmax
+	tmp = getcdf(cdfile,'an_cos',[dep -1 -1],[dep 1 1])';
+	tmp2 = getcdf(cdfile,'an_sin',[dep -1 -1],[dep 1 1])';
+	an(jj,:) = tmp(ii) + tmp2(ii).*i;
+      end
+    end
+
+    if getsa
+      if dep <= dtmax
+	tmp = getcdf(cdfile,'sa_cos',[dep -1 -1],[dep 1 1])';
+	tmp2 = getcdf(cdfile,'sa_sin',[dep -1 -1],[dep 1 1])';
+	sa(jj,:) = tmp(ii) + tmp2(ii).*i;
+      end
+    end  
+  end  
+
+end
+@
+
+
+1.8
+log
+@Finish generalizing (and debugging) for different grids, including update
+'do_blanking'.
+@
+text
+@d22 3
+a24 2
+%    x      - [nlon] longitudes (or map grid coords [see 'opt' above])
+%    y      - [nlat] latitudes  (or map grid coords [see 'opt' above])
+d30 1
+a30 1
+% $Id: getchunk.m,v 1.7 1998/05/06 04:13:53 dunn Exp dunn $
+d147 1
+d149 4
+a152 2
+  if ndims(mn)==2
+    mn = mn';
+d154 1
+a154 1
+    mn = permute(mn(:,:,didx),[2 1 3]);
+a184 1
+    tmp = vcos + vsin.*i;
+d198 4
+a201 2
+    if ndims(rq)==2
+      rq = rq';
+d296 9
+a304 1
+% ------------ End of getchunk.m ---------------------------
+@
+
+
+1.7
+log
+@Correct problems: 1) hyperslabs collapse to 2D if only 1 depth requested;
+@
+text
+@d2 1
+a2 1
+% INPUT: 
+d5 9
+a13 4
+%    deps     - scalar or vector of std depth levels to extract 
+%    region   - [w e s n] boundaries included in data extracted
+%    path     - path to netCDF map file
+%    cdfile   - input file name, if non-standard
+d15 1
+a15 1
+% OUTPUT:   Matlab 5   (For efficiency, depth is the right-hand index)
+d20 1
+a20 2
+%    rq     - [nlat,nlon,ndep] data source radius (km), OR
+%                      where -ve, is number of data points used 
+d22 2
+a23 2
+%    x      - [nlon] longitudes
+%    y      - [nlat] latitudes
+d26 1
+a26 1
+% * Matlab Version 4:  Output dimensions [ndep,ngrid], and "x" and "y" [ngrid]
+d28 2
+a29 3
+% Copyright (C) J R Dunn, CSIRO Division of Oceanography
+% $Id: getchunk.m,v 1.4 1998/02/23 00:24:33 dunn Exp dunn $
+% MODS:  Remove depths loop (version 5) to increase speed.
+d31 1
+a31 3
+% USAGE: [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,cdfile)
+
+function [mn,an,sa,rq,dets,x,y] = getchunk(property,deps,region,path,cdfile)
+d33 1
+d67 1
+a67 2
+if nargin<4; path=[]; end
+if isempty(path)
+d70 3
+a72 6
+  
+if nargin<5; cdfile=[]; end
+if isempty(cdfile)
+  cdfile = [path property '_maps'];
+else
+  cdfile = [path cdfile];
+d75 6
+d84 8
+a91 5
+if nargout > 1
+  [fid,rcode] =  mexcdf('ncopen',[cdfile '.nc'],'nowrite');
+  if rcode==-1 | fid==-1
+    error(['Cant open file ' cdfile]);
+  end
+a100 1
+
+d107 3
+a109 1
+  mexcdf('ncclose',fid);
+d112 7
+a118 1
+Xg = 100:.5:180; Yg = -50:.5:0;
+d133 3
+a135 2
+    iy = 1:length(Yg);
+    ix = 1:length(Xg);
+d137 5
+a141 5
+    iy = find(Yg>=region(3) & Yg<=region(4));
+    ix = find(Xg>=region(1) & Xg<=region(2));
+    if length(ix)<2 | length(iy)<2
+      error('GETCHUNK - region lacks enough grid points to interpolate')
+    end
+d143 4
+a146 4
+  y1 = min(iy); ny = length(iy); yn = max(iy);
+  x1 = min(ix); nx = length(ix); xn = max(ix);
+
+  mn = getnc(cdfile,'mean',[dep1 y1 x1],[depn yn xn],-1,-2,2,0,0);
+d154 2
+a155 2
+    if ndims(mm)==2
+      mn = do_blanking(mn,dep1);
+d158 1
+a158 1
+	mn(:,:,ii) = do_blanking(mn(:,:,ii),deps(ii));
+d164 2
+a165 2
+    vcos = getnc(cdfile,'an_cos',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1],2,0,0);
+    vsin = getnc(cdfile,'an_sin',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1],2,0,0);
+d179 2
+a180 2
+    vcos = getnc(cdfile,'sa_cos',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1],2,0,0);
+    vsin = getnc(cdfile,'sa_sin',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1],2,0,0);
+d193 2
+a194 2
+  if nargout>3
+    rq = getnc(cdfile,'radius_q',[dep1 y1 x1],[depn yn xn],-1,[2 3 1],2,0,0);
+d202 2
+a203 2
+  if nargout>4
+    dets = getnc(cdfile,'map_details',[dep1 -1],[depn 1],-1,-2)';
+d208 7
+a214 2
+    x = Xg(ix);
+    y = Yg(iy);
+d263 1
+a263 1
+      zi = do_blanking(zi,dep);
+@
+
+
+1.6
+log
+@Extended to handle a non-contiguos set of depths.
+@
+text
+@d21 1
+d110 1
+a110 1
+% of this script.
+d124 3
+d131 6
+a136 2
+  mn = getnc(cdfile,'mean',[dep1 y1 x1],[depn yn xn],-1,[2 3 1]);
+  mn = mn(:,:,didx);
+d139 6
+a144 2
+    for ii=1:ndep
+      mn(:,:,ii) = do_blanking(mn(:,:,ii),deps(ii));
+d149 3
+a151 2
+    vcos = getnc(cdfile,'an_cos',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1]);
+    vsin = getnc(cdfile,'an_sin',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1]);
+a152 1
+      dtidx = deps(find(deps<=dtmax))+1-dep1;
+d154 3
+a156 1
+      an(:,:,1:length(dtidx)) = vcos(:,:,dtidx) + vsin(:,:,dtidx).*i;
+d158 2
+a159 1
+      an = vcos(:,:,didx) + vsin(:,:,didx).*i;
+d164 3
+a166 2
+    vcos = getnc(cdfile,'sa_cos',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1]);
+    vsin = getnc(cdfile,'sa_sin',[dep1 y1 x1],[dtmax yn xn],-1,[2 3 1]);
+a167 1
+      dtidx = deps(find(deps<=dtmax))+1-dep1;
+d169 3
+a171 1
+      sa(:,:,1:length(dtidx)) = vcos(:,:,dtidx) + vsin(:,:,dtidx).*i;
+d173 3
+a175 2
+      sa = vcos(:,:,didx) + vsin(:,:,didx).*i;
+    end
+d179 6
+a184 2
+    rq = getnc(cdfile,'radius_q',[dep1 y1 x1],[depn yn xn],-1,[2 3 1]);
+    rq = rq(:,:,didx);
+d197 2
+a198 3
+else
+  % ----------------------------------------------------------------------
+  % version 4 case
+@
+
+
+1.5
+log
+@Remove depths loop (version 5) to increase speed.
+@
+text
+@d52 1
+d115 2
+d128 1
+d132 1
+a132 1
+      mn(:,:,ii) = do_blanking(mn(:,:,ii),dep);
+d140 1
+d142 1
+a142 1
+      an(:,:,1:(1+dtmax-dep1)) = vcos + vsin.*i;
+d144 2
+a145 2
+      an = vcos + vsin.*i;
+    end
+d152 1
+d154 1
+a154 1
+      sa(:,:,1:(1+dtmax-dep1)) = vcos + vsin.*i;
+d156 1
+a156 1
+      sa = vcos + vsin.*i;
+d162 1
+d167 1
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d24 2
+a25 1
+% $Id: getchunk.m,v 1.2 1997/08/14 06:43:21 dunn Exp dunn $
+d31 1
+d57 3
+d79 2
+a80 3
+  % Find out at what depths these variables exist  
+  [cdfid,rcode] =  mexcdf('ncopen',[cdfile '.nc'],'nowrite');
+  if rcode==-1 | cdfid==-1
+d83 2
+a84 1
+  varid = mexcdf('ncvarid',cdfid,'an_cos');
+d88 10
+a97 8
+    dtid = mexcdf('ncdimid',cdfid,'depth_timefit');
+    [name,dtmax] = mexcdf('ncdiminq',cdfid,dtid);
+    getan = 1;
+
+    varid = mexcdf('ncvarid',cdfid,'sa_cos');
+    if nargout > 2 & varid ~= -1
+      getsa = 1;
+    end    
+d99 1
+a99 1
+  mexcdf('ncclose',cdfid);
+a101 2
+dets = [];
+
+a103 6
+if nargout > 3
+  getrq = 1;
+else
+  getrq = 0;
+end
+
+d107 3
+d121 2
+d124 7
+a130 1
+  mn = NaN*ones(length(iy),length(ix),ndep);
+d133 8
+a140 1
+    an = mn + i*mn;
+d142 1
+d144 12
+a155 1
+    sa = mn + i*mn;
+d157 3
+a159 2
+  if getrq
+    rq = mn;
+d161 1
+a166 36
+
+  for jj = 1:ndep
+  
+    dep = deps(jj);
+
+    dtmp = getcdf(cdfile,'map_details',[dep -1],[dep 1]);
+    dets = [dets; dtmp(:)']; 
+
+    zi = getcdf(cdfile,'mean',[dep -1 -1],[dep 1 1])';
+    if ~isempty(BLANKBELOWBOT)
+      zi = do_blanking(zi,dep);
+    end
+    mn(:,:,jj) = zi(iy,ix);
+
+    if getrq
+      tmp = getcdf(cdfile,'radius_q',[dep -1 -1],[dep 1 1])';
+      rq(:,:,jj) = tmp(iy,ix);
+    end
+  
+    if getan
+      if dep <= dtmax
+	tmp = getcdf(cdfile,'an_cos',[dep -1 -1],[dep 1 1])';
+	tmp2 = getcdf(cdfile,'an_sin',[dep -1 -1],[dep 1 1])';
+	an(:,:,jj) = tmp(iy,ix) + tmp2(iy,ix).*i;
+      end
+    end
+
+    if getsa
+      if dep <= dtmax
+	tmp = getcdf(cdfile,'sa_cos',[dep -1 -1],[dep 1 1])';
+	tmp2 = getcdf(cdfile,'sa_sin',[dep -1 -1],[dep 1 1])';
+	sa(:,:,jj) = tmp(iy,ix) + tmp2(iy,ix).*i;
+      end
+    end  
+  end  
+
+d170 7
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d5 1
+a5 1
+%    deps     - [ndep] std depth levels to extract
+d13 2
+a14 2
+%    an     - [nlat,nlon,ndep] complex annual harmonics
+%    sa     - [nlat,nlon,ndep] complex semiannual harmonics
+d32 5
+a36 1
+if strncmp(property,'t',1)
+d38 1
+a38 1
+elseif strncmp(property,'o',1)
+d40 1
+a40 1
+elseif strncmp(property,'n',1)
+d42 1
+a42 1
+elseif strncmp(property,'p',1)
+d44 1
+a44 1
+elseif strncmp(property,'si',2)
+d46 1
+a46 1
+elseif strncmp(property,'s',1)
+d70 3
+a81 1
+    getan = 0;
+a89 2
+    else
+      getsa = 0;
+a92 2
+else
+  getan = 0;
+@
+
+
+1.2
+log
+@Fix up to run under Matlab5.
+@
+text
+@a0 2
+function [dd,an,sa,dets,rq,x,y] = getchunk(property,deps,path,cdfile,region)
+
+d3 1
+a3 1
+%    property - long property name (eg 'salinity')
+d6 1
+a8 1
+%    region   - [w e s n] boundaries included in data extracted
+d10 2
+a11 2
+% OUTPUT:   
+%    dd     - [ndep,ngrid] mean field (1/2 degree grid in [100 180 -50 0])
+d13 3
+a15 4
+%    an      - [ndep,ngrid] complex annual harmonics
+%    sa      - [ndep,ngrid] complex semiannual harmonics%
+%    dets    - [ndep,det_len] mapping details text string
+%    rq      - [ndep,ngrid] data source radius (km), OR
+d17 5
+a21 2
+%    x       - [ngrid] longitudes
+%    y       - [ngrid] latitudes
+d24 1
+a24 1
+% $Id: getchunk.m,v 1.1 1997/04/17 05:49:01 dunn Exp dunn $
+d26 1
+a26 1
+% USAGE: [dd,an,sa,dets,rq,x,y] = getchunk(property,deps,path,cdfile,region)
+d28 18
+d52 3
+a54 1
+if nargin<3; path=[]; end
+d59 1
+a59 1
+if nargin<4; cdfile=[]; end
+a65 12
+Xg = 100:.5:180; Yg = -50:.5:0; [Xg Yg]=meshgrid(Xg,Yg);
+if nargin<5; region=[]; end
+if isempty(region)
+  ii = 1:prod(size(Xg));
+else
+  ii = find(Xg>=region(1) & Xg<=region(2) & Yg>=region(3) & Yg<=region(4));
+  ii = ii(:)';
+end
+ngrid = length(ii);
+
+dd = NaN*ones(ndep,ngrid);
+
+d80 1
+a80 1
+    an = dd + i*dd;
+d82 5
+d93 1
+a93 6
+if nargout > 2 & varid ~= -1
+  getsa = 1;
+  sa = dd + i*dd;
+else
+  getsa = 0;
+end
+d95 1
+a95 1
+dets = [];
+d97 1
+a97 1
+if nargout > 4
+a98 1
+  rq = dd;
+a102 4
+if nargout > 5
+  x = Xg(ii);
+  y = Yg(ii);
+end
+d104 43
+d148 4
+a151 1
+for jj = 1:ndep
+d153 7
+a159 1
+  dep = deps(jj);
+d161 8
+a168 2
+  dtmp = getcdf(cdfile,'map_details',[dep -1],[dep 1]);
+  dets = [dets; dtmp(:)']; 
+d170 5
+a174 2
+  zi = getcdf(cdfile,'mean',[dep -1 -1],[dep 1 1])';
+  dd(jj,:) = zi(ii);
+d176 15
+d192 6
+a197 2
+    tmp = getcdf(cdfile,'radius_q',[dep -1 -1],[dep 1 1])';
+    rq(jj,:) = tmp(ii);
+d199 3
+d203 8
+a210 5
+  if getan
+    if dep <= dtmax
+      tmp = getcdf(cdfile,'an_cos',[dep -1 -1],[dep 1 1])';
+      tmp2 = getcdf(cdfile,'an_sin',[dep -1 -1],[dep 1 1])';
+      an(jj,:) = tmp(ii) + tmp2(ii).*i;
+d212 1
+a212 1
+  end
+d214 11
+a224 5
+  if getsa
+    if dep <= dtmax
+      tmp = getcdf(cdfile,'sa_cos',[dep -1 -1],[dep 1 1])';
+      tmp2 = getcdf(cdfile,'sa_sin',[dep -1 -1],[dep 1 1])';
+      sa(jj,:) = tmp(ii) + tmp2(ii).*i;
+d226 8
+a234 1
+end  
+d236 1
+d238 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d24 1
+a24 1
+% $Id: $
+d28 2
+a29 1
+if deps==[]
+d34 2
+a35 1
+if nargin<3 | path==[]
+d39 2
+a40 1
+if nargin<4 | cdfile==[]
+d42 2
+d47 2
+a48 1
+if nargin<5
+d62 1
+a62 1
+    error(['Cant open file ' ncfile]);
+d113 1
+a113 1
+    tmp = getcdf(cdfile,'radius_q',[dep -1 -1],[dep 1 1]);
+d117 2
+a118 2
+  if dep <= dtmax
+    if getan
+d123 4
+a126 1
+    if getsa
+@

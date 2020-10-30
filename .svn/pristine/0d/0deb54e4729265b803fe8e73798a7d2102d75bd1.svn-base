@@ -1,0 +1,279 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IMOS NETCDF CONVENTIONS (Version 1.4)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% (core mandatory global attributes for IMOS)
+
+% what 
+S, project                      = Integrated Marine Observing System - Ships of opportunity - Bio-Acoustics (IMOS SOOP-BA)
+S, Conventions                  = CF-1.6,IMOS-1.4,ICES_SISP_4-1.10,SOOP-BA-2.2
+S, standard_name_vocabulary     = NetCDF Climate and Forecast (CF) Metadata Convention Standard Name Table Version 29
+S, title                        = [mat ['A Bio-acoustic dataset from ' sample_data.transit_start_locality ' to ' sample_data.transit_end_locality ' in ' datestr(sample_data.time_coverage_start,'mmm yyyy')]]
+S, institution                  = CSIRO Oceans and Atmosphere
+D, date_created                 = [mat now_utc]
+S, abstract                     = [mat ['This is a water column acoustic dataset from ' sample_data.transit_start_locality ' to ' sample_data.transit_end_locality ' in ' datestr(sample_data.time_coverage_start,'mmm yyyy') '. Collected under the IMOS BA-SOOP program by ' sample_data.ship_operator ' vessel ' sample_data.ship_name '.']]
+S, naming_authority             = IMOS
+
+% where 
+N, geospatial_lat_min       = [ddb Site Sites Latitude]
+N, geospatial_lat_max       = [ddb Site Sites Latitude]
+N, geospatial_lon_min       = [ddb Site Sites Longitude]
+N, geospatial_lon_max       = [ddb Site Sites Longitude]
+% if left empty, these fields are automatically populated upon import 
+% when DEPTH variable exist (if not use depthPP pre-processing routine)
+N, geospatial_vertical_min = 
+N, geospatial_vertical_max = 
+S, geospatial_vertical_positive = down
+
+% when 
+D, time_coverage_start          = 
+D, time_coverage_end            = 
+
+% who 
+S, data_centre                  = eMarine Information Infrastructure (eMII)
+S, data_centre_email            = info@emii.org.au
+S, author                       = Ryan Downie
+S, principal_investigator       = Rudy Kloser
+
+% how 
+S, citation                = The citation in a list of references is: "IMOS. [year-of-data-download], [Title], [data-access-URL], accessed [date-of-access]".
+S, acknowledgement         = Any users (including repackagers) of IMOS data are required to clearly acknowledge the source of the material in this format: "Data was sourced from the Integrated Marine Observing System (IMOS) - IMOS is supported by the Australian Government through the National Collaborative Research Infrastructure Strategy and the Super Science Initiative".
+S, disclaimer              = Data, products and services from IMOS are provided "as is" without any warranty as to fitness for a particular purpose.
+S, license                 = CC BY 4.0 https://creativecommons.org/licenses/by/4.0/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Optional global attributes
+
+% what 
+S, featureType                  = (IMOS-Optional)
+D, date_modified                = 
+S, history                      = 
+S, comment                      = [ddb Comment]
+S, source                       = Echosounder
+S, instrument                   = (IMOS-Optional) 
+S, instrument_serial_number     = [mat updateIfEmpty('[ddb InstrumentID Instruments SerialNumber]', sample_data.meta.instrument_serial_no)]
+S, references                   = http://www.imos.org.au
+S, site_code                    = 
+S, platform_code                = 
+S, cdm_data_type                = Trajectory
+S, keywords                     = Oceans > Ocean Acoustics > Acoustic Scattering, Oceans > Aquatic Sciences > Fisheries
+S, keywords_vocabulary          = NASA/GCMD Earth Science Keywords
+S, metadata                     = (IMOS-Optional)
+S, sensorML                     = (IMOS-Optional)
+S, institution_address          = Castray Esplanade, Hobart TAS 7000, Australia
+S, institution_postal_address   = GPO Box 1538, Hobart TAS 7001, Australia
+S, file_version                 = 2
+S, file_version_quality_control = (IMOS-Optional) 
+S, quality_control_log          = (IMOS-Optional) 
+
+% Where
+
+% When
+N, local_time_zone         = (IMOS-Optional)
+
+% Who
+S, author_email                 = Ryan.Downie@csiro.au
+S, principal_investigator_email = Rudy.Kloser@csiro.au
+S, institution_references       = http://imos.org.au/basoop.html
+
+% How
+S, lineage                 = (IMOS-Optional)
+
+% IMOS Toolbox optional global attributes
+N, instrument_nominal_height = 
+N, instrument_nominal_depth = 
+N, site_nominal_depth       = 
+N, site_depth_at_deployment = 
+S, deployment_code              = [ddb Site]
+N, instrument_sample_interval   = [mat sample_data.meta.instrument_sample_interval]
+N, instrument_average_interval  = [mat sample_data.meta.instrument_average_interval]
+N, instrument_beam_angle        = [mat sample_data.meta.beam_angle]
+N, instrument_burst_interval    = [mat sample_data.meta.instrument_burst_interval]
+N, instrument_burst_duration    = [mat sample_data.meta.instrument_burst_duration]
+% these fields are automatically populated upon creation/export
+% these fields are automatically populated upon import
+D, time_deployment_start        = 
+S, time_deployment_start_origin = 
+D, time_deployment_end          = 
+S, time_deployment_end_origin   = 
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ICES WGFAST Topic Group, TG-AcMeta (Version 1.10)
+
+% Category: Metadata record
+S, convention_name              = A metadata convention for processed acoustic data from active acoustic systems
+S, convention_author            = ICES WGFAST Topic Group, TG-AcMeta
+N, convention_year              = 2016
+S, convention_organisation      = International Council for the Sea (ICES)
+S, convention_publisher      	= The Series of ICES Survey Protocols (SISP) http://www.ices.dk/publications/our-publications/Pages/Survey-Protocols.aspx
+S, convention_version      	= Version 1.10
+S, convention_reference      	= ICES. 2016. A metadata convention for processed acoustic data from active acoustic systems, SISP 4 TG-AcMeta Version 1.10, ICES WGFAST Topic Group, TG-AcMeta. 47 pp
+
+% Category: Mission attributes
+S, mission_name                 = Integrated Marine Observing System - Ships of Opportunity - Bio Acoustics
+S, mission_abstract             = Collection of bio acoustic data from ships of opportunity
+S, mission_start_date           = 2010-07-01
+S, mission_end_date             = (ICES-Mandatory if applicable)
+S, mission_id                   = IMOS-SOOPBA
+S, mission_platform             = Ship, other
+S, creator                      = Ryan Downie
+S, contributor                  = Ryan Downie
+
+% Category: Cruise attributes
+S, cruise_name                  = (ICES-Mandatory if applicable)
+S, cruise_description           = (ICES-Mandatory if applicable)
+S, cruise_summary_report        = (ICES-Mandatory if applicable)
+S, cruise_area_description      = (ICES-Mandatory if applicable)
+S, cruise_start_date            = (ICES-Mandatory if applicable)
+S, cruise_end_date              = (ICES-Mandatory if applicable)
+S, cruise_id                    = (ICES-Optional)
+N, cruise_northlimit            = (ICES-Mandatory if applicable)
+N, cruise_eastlimit             = (ICES-Mandatory if applicable)
+N, cruise_southlimit            = (ICES-Mandatory if applicable)
+N, cruise_westlimit             = (ICES-Mandatory if applicable)
+N, cruise_uplimit               = (ICES-Mandatory if applicable)
+N, cruise_downlimit             = (ICES-Mandatory if applicable)
+S, cruise_units                 = signed decimal degrees
+S, cruise_zunits                = m
+S, cruise_projection            = Geographic
+S, cruise_start_port            = (ICES-Optional)
+S, cruise_end_port              = (ICES-Optional)
+S, cruise_start_BODC_code       = (ICES-Optional)
+S, cruise_end_BODC_code         = (ICES-Optional)
+S, cruise_comments              = (ICES-Optional)
+
+% Category: Ship attributes
+% Ship metadata read from platform/<ship>_attributes.txt, type determined here
+S, ship_name                    =
+S, ship_type                    =
+S, ship_code                    =
+S, ship_platform_code           =
+S, ship_platform_class          =
+S, ship_callsign                =
+S, ship_alt_callsign            =
+S, ship_IMO                     =
+S, ship_operator                =
+N, ship_length                  =
+N, ship_breadth                 =
+N, ship_tonnage                 =
+N, ship_engine_power            =
+S, ship_noise_design            =
+S, ship_acknowledgement         =
+S, ship_comments                =
+
+% Category: Transect attributes
+S, transect_name		= (ICES-Optional)
+S, transect_id		        = (ICES-Optional)
+S, transect_description         = [mat ['Transit from ' sample_data.transit_start_locality ' to ' sample_data.transit_end_locality]]
+S, transect_related_activity	= (ICES-Optional)
+S, transect_start_time	        = (ICES-Mandatory if applicable)
+S, transect_end_time	        = (ICES-Mandatory if applicable)
+N, transect_northlimit          = (ICES-Mandatory if applicable)
+N, transect_eastlimit           = (ICES-Mandatory if applicable)
+N, transect_southlimit          = (ICES-Mandatory if applicable)
+N, transect_westlimit           = (ICES-Mandatory if applicable)
+N, transect_uplimit             = (ICES-Mandatory if applicable)
+N, transect_downlimit           = (ICES-Mandatory if applicable)
+S, transect_units               = signed decimal degrees
+S, transect_zunits              = m
+S, transect_projection          = Geographic
+S, transect_comments            = (ICES-Optional)
+
+% Category: Instrument attributes
+% Instrument attributes read from platform/<ship>_<channel>.txt, type determined here
+S, instrument_frequency		=
+S, instrument_transducer_location =
+S, instrument_transducer_manufacturer =
+S, instrument_transducer_model  =
+S, instrument_transducer_beam_type =
+S, instrument_transducer_serial =
+N, instrument_transducer_depth  =
+S, instrument_transducer_orientation =
+N, instrument_transducer_psi    =
+N, instrument_transducer_beam_angle_major =
+N, instrument_transducer_beam_angle_minor =
+S, instrument_transceiver_manufacturer =
+S, instrument_transceiver_model =
+S, instrument_transceiver_serial =
+S, instrument_transceiver_firmware =
+S, instrument_comments          =
+
+% Category: Calibration attributes
+% Calibration attributes read from platform/<ship>_<channel>.txt, type determined here
+S, calibration_date             =
+S, calibration_acquisition_method =
+S, calibration_processing_method =
+S, calibration_accuracy_estimate =
+S, calibration_report           =
+S, calibration_comments		=
+
+% Category: Data acquisition attributes
+% Data acquisition attributes read from platform/<ship>_<channel>.txt, type determined here
+S, data_acquisition_software_name =
+S, data_acquisition_software_version =
+S, data_acquisition_stored_data_format =
+S, data_acquisition_ping_duty_cycle =
+S, data_acquisition_comments    =
+
+% Category: Data processing attributes
+% Data processing attributes read from platform/<ship>_<channel>.txt, type determined here
+S, data_processing_software_name = 
+S, data_processing_software_version =
+S, data_processing_triwave_correction =
+S, data_processing_channel_id =
+N, data_processing_bandwidth =
+N, data_processing_frequency    =
+N, data_processing_transceiver_power =
+N, data_processing_transmit_pulse_length	=
+N, data_processing_on_axis_gain =
+S, data_processing_on_axis_gain_units =
+N, data_processing_Sacorrection =
+N, data_processing_absorption	=
+S, data_processing_absorption_description =
+N, data_processing_soundspeed	=
+S, data_processing_soundspeed_description =
+N, data_processing_transducer_psi =
+S, data_processing_comments =
+
+% Category: Dataset attributes
+S, units                        = signed decimal degrees
+S, zunits                       = m
+S, projection                   = Geographic
+S, dataset_linestring           = (ICES-Optional)
+
+% Category: Data attributes
+S, data_acoustic_datatype       = sv, Volume backscattering coefficient (m-1)
+S, data_ping_axis_interval_type = Distance (metres)
+S, data_ping_axis_interval_origin = Start
+N, data_ping_axis_interval_value = 1000
+S, data_range_axis_interval_type = Range (metres)
+S, data_range_axis_interval_origin = Start
+N, data_range_axis_interval_value = 10
+S, distribution_statement = Data, products and services from IMOS are provided "as is" without any warranty as to fitness for a particular purpose.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%SOOP_BA
+S, transit_start_locality	=
+S, transit_end_locality	 	=
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% I dont understand from where the below attributes are originating
+
+S, dataset_datum                = WGS84
+S, instrument_channel_id        =
+D, calibration_file_date	=
+S, calibration_file_name	=
+S, data_processing_motion_correction = 
+S, data_processing_motion_correction_description =
+
+
+
+
+
+
+
+

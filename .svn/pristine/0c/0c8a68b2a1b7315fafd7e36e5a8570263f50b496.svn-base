@@ -1,0 +1,36 @@
+% if not listed in this file, -> graphTimeSeriesGeneric
+CSPD,      TimeDepth
+CDIR,      TimeDepth
+VCUR,      TimeDepth
+UCUR,      TimeDepth
+CDIR_MAG,  TimeDepth
+VCUR_MAG,  TimeDepth
+UCUR_MAG,  TimeDepth
+WCUR,      TimeDepth
+ECUR,      TimeDepth
+ABSI1,     TimeDepth
+ABSI2,     TimeDepth
+ABSI3,     TimeDepth
+ABSI4,     TimeDepth
+CMAG1,     TimeDepth
+CMAG2,     TimeDepth
+CMAG3,     TimeDepth
+CMAG4,     TimeDepth
+PERG1,     TimeDepth
+PERG2,     TimeDepth
+PERG3,     TimeDepth
+PERG4,     TimeDepth
+VDEN,      TimeFrequency
+VDEV,      TimeFrequency
+VDEP,      TimeFrequency
+VDES,      TimeFrequency
+SSWD,      TimeFrequency
+SSWD_MAG,  TimeFrequency
+SSWV,      TimeFrequencyDirection
+SSWV_MAG,  TimeFrequencyDirection
+Sv,        TimeDepth
+Sv_pcnt_good, TimeDepth
+mean_height, TimeDepth
+mean_depth, TimeDepth
+Sv_unfilt, TimeDepth
+

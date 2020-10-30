@@ -1,0 +1,7 @@
+S, platform_mobility                        = Mobile
+S, platform_class                           = 3B
+S, mission_platform             	    = 
+S, platform_description                     = A saildrone is a wind and solar-powered unmanned surface vehicle (USV) capable of data collection missions on the open ocean. Saildrone is able to sail 100 kilometers per day on average, and which consist of a narrow seven-meter-long hull, a five-meter-tall wing, and a keel with a 2.5-meter draft. The saildrone can be deployed and recovered from any seaside dock and can fit into a shipping container allowing transit to any launch site. When it is deployed from a dock, they can sail to the area of study, and come back once the mission is complete.
+S, platform_code                            = SD1022
+S, platform_operator                        = 
+S, platform_comments                        = 

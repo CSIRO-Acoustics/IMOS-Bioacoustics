@@ -1,0 +1,45 @@
+<project name="imos-ddb-bridge" default="compile" basedir=".">
+	<description>
+    	A set of Java classes which provide access to, and representation of,
+    	the IMOS Deployment Database (DDB). Create an 'instance' of the DDB via
+    	the static org.imos.ddb.DDB.getDDB(String) method, and use that instance
+		to query the DDB.
+
+		Only a JDK 1.6 is required.
+	</description>
+
+	<property name="sourcedir" value="${basedir}/src" />
+	<property name="targetdir" value="${basedir}/bin" />
+
+	<path id="classpath">
+		<pathelement path="${targetdir}" />
+		<pathelement path="${basedir}" />
+		<fileset dir="UCanAccess-3.0.2-bin">
+			<include name="**/*.jar"/>
+		</fileset>
+		<fileset dir="UCanAccess-3.0.2-bin/lib">
+			<include name="**/*.jar"/>
+		</fileset>
+	</path>
+
+	<target name="clean" description="--> Clean up object code">
+		<delete dir="${targetdir}" />
+		<mkdir dir="${targetdir}" />
+    	<delete file="ddb.jar"/>
+	</target>
+
+	<target name="compile" depends="clean" description="--> Compile all files">
+		<javac debug="on" srcdir="${sourcedir}" destdir="${targetdir}" classpathref="classpath" source="1.6" target="1.6" includeantruntime="false" />
+	</target>
+
+  <target name="install" depends="compile" description="--> Build a Jar file">
+    <jar basedir="${targetdir}" destfile="ddb.jar"/>
+  </target>
+	
+	<target name="test" depends="compile" description="--> Runs a test case">
+		<java classname="org.imos.ddb.Test" classpathref="classpath" fork="true" dir="${targetdir}">
+      		<sysproperty key="java.library.path" value="${basedir}"/>
+		</java>
+	</target>
+	
+</project>

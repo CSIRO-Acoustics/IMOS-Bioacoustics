@@ -1,0 +1,874 @@
+function control = process_BASOOP(control)
+%process_BASOOP function to process vessel acoustics transit data
+%
+% control is a struct containing the settings to control this run.
+%
+% control can be built a number of ways, including via a GUI application.
+%
+% control may be the name of a MAT file containing the settings.
+%
+% Preconditions:
+%
+% control.template_file must have .ev extension. 
+%
+% template ev file will have filesets names Vessel_Sv_data (Item(0)) and
+% Transit_GPS (Item(1)). 
+%
+% Transit_GPS file must have been created that contains GPS for the entire
+% block of transit data that is being processed. This is essential. We need
+% to process raw files in smaller blocks, but we reference the GPS file for
+% the entire transit in order to produce echointegration intervals with a
+% consistent spacing. This gets around the problem of blocks of files
+% having a partial echointegration interval at the end of each block. Post
+% processing is required outside of Echoview to remove partial
+% echointegration intervals and intervals that have overlapped.  
+%
+% control.transit_data_files [Q:\temp\transit_data_files.txt]
+% is the name of a file containing a list of transit data files.
+%
+% Assumes that the WaterColumnAcoustics storage area is mapped to the Q
+% drive of the processing PC or files are specified in control.
+%
+% Author:   Gordon Keith
+% Version:  2.0
+% Date      2011-09-20
+% ${Id:}
+%
+% Based on process_SOOP by Tim Ryan
+
+% Lines preceded by a comment %## are the lines that do the actual work for
+% that operation. If you want to run the commands from the matlab command
+% line look for those comments, everything else is just support.
+%
+%%
+    control.tstart = tic;    
+    
+    % fill in defaults for all fields not provided.
+    control = basoop(control);
+    
+    % record settings used in log
+    stack = dbstack('-completenames');
+    root_path = fileparts(stack(1).file);
+    if isdir(fullfile(root_path, 'log'))
+        save(fullfile(root_path, 'log',[datestr(now,'yyyymmdd-HHMMSS') '_' control.platform '_' getenv('USER') getenv('UserName')]), ...
+            '-struct', 'control');
+    end
+    
+    % add directory containing process_BASOOP to matlab path
+    if isempty(strfind(path,root_path))
+        addpath(root_path);
+    end
+    
+    % check inputs
+    if control.create_ev_files
+        if exist(control.template, 'file') ~= 2
+            fprintf('\n\n*********************************************************************************************\n');
+            fprintf('Template file %s not found in expected location\n', control.template);
+            fprintf('Go and find the appropriate template file\n');
+            fprintf('************************************************************************************************\n\n\n\n');
+            [filename, pathname]= uigetfile('*.ev', 'Please select a template');
+            if filename == 0
+                error 'Template not specified.\nA valid EchoView template must be given to create EV files.'
+            end
+            control.template = fullfile(pathname, filename);
+        end
+        
+        if exist(control.transit_data_files, 'file') ~= 2
+            fprintf('\n\n*********************************************************************************************\n');
+            fprintf('Data file list %s not found in expected location\n', control.transit_data_files);
+            fprintf('Go and find the appropriate file\n');
+            fprintf('************************************************************************************************\n\n\n\n');
+            [filename, pathname]= uigetfile();
+            if filename == 0
+                error 'Data file list not specified'
+            end
+            control.transit_data_files = fullfile(pathname, filename);
+        end
+        
+        if exist(control.transit_gps_file, 'file') ~= 2
+            fprintf('\n\n*********************************************************************************************\n');
+            fprintf('GPS file %s not found in expected location\n', control.transit_gps_file);
+            fprintf('Go and find the appropriate file\n');
+            fprintf('************************************************************************************************\n\n\n\n');
+            [filename, pathname]= uigetfile();
+            if filename == 0
+                error 'GPS file not specified'
+            end
+            control.transit_gps_file = fullfile(pathname, filename);
+        end
+    end
+    
+    merge_file = control.merge_file;
+    ev_files = {};
+    EvApp = [];
+    Process_output_root_path = '';
+    ev_filelist = '';
+
+    %
+    % Read voyage meta data from .inf file.
+    %
+    % This may require user input to select port where ambiguous and
+    % doesn't rely on any other actions so it happens before time consuming
+    % processing.
+    %
+    if control.read_inf
+        if exist(control.voyage_inf, 'file') == 2
+            control.meta = read_inf(control.meta, control.voyage_inf);
+        else
+            error(['inf file not found: ' control.voyage_inf])
+        end
+    end
+    
+    %
+    % Read echoview calibration settings from .ecs file.
+    % 
+    % This may require user input to select the calibration and 
+    % doesn't rely on any other actions so it happens before time consuming
+    % processing.
+    %
+    if control.read_ecs
+        if exist(control.calibration_file, 'file') == 2
+            control.meta = read_ecs(control.meta, control.calibration_file);
+        else
+            error(['ecs file not found: ' control.calibration_file])
+        end
+    end
+        
+
+%%    
+%
+% Create .ev files from raw files and template.
+%
+    if control.create_ev_files
+        progress(control, '', [], [], [], control.transit_data_files)
+        
+        [file_sets, Process_output_root_path] = getFileSets(control);
+
+        progress(control, '', [], [], [], Process_output_root_path)
+        
+        if control.create_alt_ev_files
+            Echoview_file_locations = control.alt_ev_dir;
+        else
+            Echoview_file_locations = ...
+                fullfile(Process_output_root_path, control.worksheet_directory);
+        end
+        
+        control.echoview_file_location = Echoview_file_locations;
+        
+        progress(control, 'create ev', [])
+        
+        if ~isdir(Echoview_file_locations)
+            mkdir(Echoview_file_locations)
+        end
+    
+        % Copy over the transit_data_files.txt to the processed output
+        % Echoview ev folder
+        if ~strncmp(control.transit_data_files, Echoview_file_locations, length(Echoview_file_locations))
+            copyfile(control.transit_data_files, Echoview_file_locations)
+        end
+        % Copy and use copies of GPS and motion files
+        if ~strncmp(control.transit_gps_file, Echoview_file_locations, length(Echoview_file_locations))
+            if copyfile(control.transit_gps_file, Echoview_file_locations)
+                [~, t_file, t_ext] = fileparts(control.transit_gps_file);
+                control.transit_gps_file = fullfile(Echoview_file_locations, [t_file t_ext]);
+            else
+                error 'Could not copy GPS file'
+            end
+        end
+        if control.include_roll && ...
+                ~strncmp(control.transit_roll_file, Echoview_file_locations, length(Echoview_file_locations))
+            if copyfile(control.transit_roll_file, Echoview_file_locations)
+                [~, t_file, t_ext] = fileparts(control.transit_roll_file);
+                control.transit_roll_file = fullfile(Echoview_file_locations, [t_file t_ext]);
+            else
+                error 'Could not copy roll file'
+            end
+        end
+        if control.include_pitch && ...
+                ~strncmp(control.transit_pitch_file, Echoview_file_locations, length(Echoview_file_locations))
+            if copyfile(control.transit_pitch_file, Echoview_file_locations)
+                [~, t_file, t_ext] = fileparts(control.transit_pitch_file);
+                control.transit_pitch_file = fullfile(Echoview_file_locations, [t_file t_ext]);
+            else
+                error 'Could not copy pitch file'
+            end
+        end
+    
+        create_start = tic;
+        create_progress =@(i,n,file)(progress(control, 'create ev',i, i, create_start, file));
+        EvApp = getEvApp(EvApp, control.EvApp);
+        %##
+        ev_filelist = create_ev_files(file_sets, EvApp, control, create_progress);
+        
+        progress(control, 'create ev', 1,0,[], ev_filelist)
+    else
+        
+        progress(control, 'create ev', -1,0,[], ev_filelist)
+    end
+    
+%
+% Use provided list of ev files
+%
+    if control.use_alt_ev_files
+        ev_filelist = control.alt_ev_files;
+    end
+    
+%%
+%
+% Manual review of worksheets in echoview
+%
+
+    if control.review_ev_files
+        progress(control, 'review ev', [])
+        
+        [ev_files, Process_output_root_path] = get_ev_files(control, ev_filelist);
+        EvApp = getEvApp(EvApp, control.EvApp);
+        %##
+        ev_files = review_ev_files(EvApp, ev_files);
+        progress(control, 'review ev', 1, 0)
+    else
+        progress(control, 'review ev', -1)
+    end
+    
+%%
+%
+% Export worksheets to HAC format then import the HAC worksheets.
+%
+    if control.export_import_HAC
+        progress(control, 'export HAC', [])
+        EvApp = getEvApp(EvApp, control.EvApp);
+        if isempty(ev_files)
+            [ev_files, Process_output_root_path] = get_ev_files(control, ev_filelist);
+        end
+        export_import_HAC(EvApp, ev_files, control, @progress);
+        progress(control, 'export HAC', 1, 0, '')
+    else
+        progress(control, 'export HAC', -1)
+    end
+%%
+%
+% export Sv values to .csv files
+%
+    if control.export_sv
+        progress(control, 'export csv', [])        
+        EvApp = getEvApp(EvApp, control.EvApp);
+        if isempty(ev_files)
+            [ev_files, Process_output_root_path] = get_ev_files(control, ev_filelist);
+        end
+        %##
+        export_sv(EvApp, control, ev_files); 
+        progress(control, 'export csv', 1, 0)  
+    else
+        progress(control, 'export csv', -1)
+    end
+
+%%
+%
+% Merge the exported .csv files to a file readable by echoviewParse
+% ## Deprecated - only supports single channel
+        
+    if control.merge
+        progress(control, 'merge', [], 0, [], merge_file) 
+        
+        if isempty(Process_output_root_path)
+            Process_output_root_path = getOutputRoot(control);
+        end
+        echointegration_dir = fullfile(Process_output_root_path, control.echointegration_directory);
+        
+        merge_file = control.merge_file;
+        if isempty(fileparts(merge_file))
+            merge_file = fullfile(echointegration_dir, merge_file);
+        end
+    
+        %##
+        merge3(echointegration_dir, merge_file, control.channel{1});
+        progress(control, 'merge', 1, 0, [], merge_file)   
+    else
+        progress(control, 'merge', -1)   
+    end
+    
+    
+%%
+% the following steps use the IMOS-toolbox which assumes it is in the
+% current directory and the path, so find and change to the IMOS-toolbox
+% directory and add the toolbox to the path, if not present.
+
+    if isdir(['IMOS-toolbox' filesep])
+        basoop_dir = cd('IMOS-toolbox');
+        imos_path = pwd;
+    else
+        imos_path = fileparts(which('imosToolbox'));
+        if isempty(imos_path)
+            imos_path = fullfile(root_path,'IMOS-toolbox');
+        end
+        if ~exist(imos_path,'dir')
+            warning('BASOOP:NO_IMOS', 'IMOS-toolbox not found\n')
+        else
+            basoop_dir = cd(imos_path);
+        end
+    end
+    
+    if isempty(strfind(path,pwd))
+        imospath=genpath(pwd);
+        imospath=regexprep(imospath, ...
+            [ pathsep '[^' pathsep ']+' filesep '.svn[^' pathsep ']*' ], '');
+        imospath=regexprep(imospath, ...
+            [ pathsep '[^' pathsep ']+' filesep 'Java[^' pathsep ']*' ], '');
+        addpath(imospath);
+    end
+    
+%
+% Use IMOS-toolbox echoviewParse to create sample_data from merged .csv
+% file
+% ## Deprecated - only supports single channel
+%
+    sample_data =[];
+    
+    if control.read_merge
+        parse_file = control.parse_file;
+        if isempty(parse_file)
+            if isempty(fileparts(merge_file))
+                if isempty(Process_output_root_path)
+                    Process_output_root_path = getOutputRoot(control);
+                end
+                merge_file = fullfile(Process_output_root_path, control.echointegration_directory, merge_file);
+            end
+            parse_file = merge_file;
+        end
+        
+        if ~isfield(control.meta, 'transect_id') || ~isempty(control.meta.transect_id)
+            transect = fileparts(fileparts(parse_file));
+            [transect, control.meta.transect_id] = fileparts(transect);
+            if ~isfield(control.meta, 'voyage_id') || ~isempty(control.meta.voyage_id)
+                [~,control.meta.voyage_id] = fileparts(transect);
+            end
+        end
+        
+        progress(control, 'read merge', [], 0, [], parse_file)
+        if control.extended
+            sample_data = echoviewParse({parse_file}, control.platform, 'echoview_extend.txt', control.channel{1});
+        else
+            %##
+            sample_data = echoviewParse({parse_file}, control.platform, '', control.channel{1});
+        end
+        
+        progress(control, 'read merge', 1, 0, [], parse_file)
+    end
+    
+%%
+%
+% Read echointegration results
+%
+
+    if control.read_echointegration        
+        progress(control, 'read echointegration', [], 0, [], Process_output_root_path)
+        if ~isempty(control.echointegration_path)
+            Process_output_root_path = control.echointegration_path;
+        elseif isempty(Process_output_root_path)
+            Process_output_root_path = getOutputRoot(control);
+        end
+        %##
+        sample_data = read_echointegration(Process_output_root_path, control, @progress);
+        save(fullfile(root_path,'log','sample_data.mat'),'-struct','sample_data');
+        progress(control, 'read echointegration', 1, 0, [], Process_output_root_path)
+    end
+
+%%
+%
+% Read an existing NetCDF file using IMOS-toolbox netcdfParse
+%
+    ncfile=control.netcdf_file;
+    
+    if control.read_netcdf
+        
+        if ~isempty(sample_data)
+            if control.read_integration
+                have_read = ['Echointegration has been read from ' Process_output_root_path];
+            else
+                have_read =  ['Merge file ' parse_file 'has been read,'];
+            end
+            question = [ have_read ...
+                ',\nbut you also want to read a NetCDF file ' ...
+                control.netcdf_file '\nYou can''t do both' ];
+            answer = questdlg(question, 'Skip NetCDF read', ...
+                'Discard data', 'Skip NetCDF', 'Skip NetCDF');
+            if strcmp(answer, 'Discard data')
+                sample_data = [];
+            end
+        end
+        
+        if isempty(sample_data)
+            progress(control, 'read netcdf', [], 0, [], control.netcdf_file)
+            try
+                sample_data = load(control.netcdf_file);
+            catch
+                %##
+                sample_data = netcdfParse({control.netcdf_file});
+            end
+            
+            date = java.util.Date();
+            timezone = date.getTimezoneOffset() / 24 / 60;
+            sample_data.date_modified = now + timezone;
+            sample_data.meta.log = {};
+            progress(control, 'read netcdf', 1, 0, [], control.netcdf_file)
+        end
+    end
+    
+%%
+    % use user provided meta data
+    if ~isempty(sample_data)
+        
+        sample_data.meta.level = 2;
+        if isfield(sample_data, 'vessel_name')
+            sample_data.meta.site_name = sample_data.vessel_name;
+            sample_data.meta.site_id = sample_data.vessel_name;
+        end
+        if isfield(sample_data.meta, 'depth') && ~isempty(sample_data.meta.depth)
+        elseif isfield(sample_data, 'instrument_frequency')
+            sample_data.meta.depth = sample_data.instrument_frequency;
+        elseif isfield(sample_data, 'frequency') 
+            sample_data.meta.depth = sample_data.frequency;
+        elseif isfield(sample_data, ['frequency_' control.channel{1}])
+            sample_data.meta.depth = sample_data.(['frequency_' control.channel{1}]);
+        end
+        if isfield(sample_data, 'instrument_transceiver_model')
+            sample_data.meta.instrument_model = sample_data.instrument_transceiver_model;
+        elseif isfield(sample_data, 'transceiver_model')
+            sample_data.meta.instrument_model = sample_data.transceiver_model;
+        elseif isfield(sample_data, ['transceiver_model_' control.channel{1}])
+            sample_data.meta.instrument_model = sample_data.(['transceiver_model_' control.channel{1}]);
+        end
+        
+        if control.read_meta && exist(control.metadata_file, 'file') == 2
+            extras = parseNetCDFTemplate(control.metadata_file,sample_data);
+            fields = fieldnames(extras);
+            for field = fields'
+                fld = field{1};
+                if ~isempty(extras.(fld))
+                    control.meta.(fld) = extras.(fld);
+                end
+            end
+        end
+        
+        fields = fieldnames(control.meta);
+        for field = fields'
+            fld = field{1};
+            if ~isempty(control.meta.(fld))
+                sample_data.(fld) = control.meta.(fld);
+            end
+        end
+        
+        % software version information
+        if ~isfield(sample_data, 'toolbox_version')
+            sample_data.toolbox_version = 'unknown';
+            toolbox_version = '';
+            toolbox =  which('imosToolbox');
+            if ~isempty(toolbox)
+                try
+                    fid = fopen(toolbox, 'rt');
+                    line = fgetl(fid);
+                    while ischar(line) && isempty(toolbox_version)
+                        toolbox_version = ...
+                            regexp(line,'toolboxVersion\s=\s''(.+)''', 'tokens');
+                        line = fgetl(fid);
+                    end
+                    fclose(fid);
+                    if ~isempty(toolbox_version)
+                        sample_data.toolbox_version = toolbox_version{1}{1};
+                    end
+                catch exception
+                    warning('BASOOP:Toolbox_version', ...
+                        ['Can''t get toolbox version ' exception.message])
+                end
+            end
+        end
+        
+        if ~isfield(sample_data, 'echoview_version')
+            sample_data.echoview_version = 'unknown';
+            if isfield(sample_data, 'processing_software_version')
+                sample_data.echoview_version = sample_data.processing_software_version;
+            end
+        end
+        
+        sample_data.matlab_version = version;
+        
+        software = [ ...
+            'process_BASOOP version' control.version ';\n' ...
+            'matlab version ' version ';\n' ...
+            'IMOS toolbox version ' sample_data.toolbox_version ';\n' ...
+            'EchoView version ' sample_data.echoview_version ];
+        sample_data.data_processing_software_name = software;
+    end
+        
+%%
+%
+% Read synthetic temperature and salinity from CARS data and include in
+% data set.
+%
+    if control.synTS
+        progress(control, 'synTS', [], 0, [], '')
+        %##
+        sample_data = get_synTS(sample_data);
+        
+        if control.sound_speed
+            % create variables for correct_sound_speed to store intermediate
+            % results
+            v = length(sample_data.variables);
+            for i = v:-1:1
+                if strcmp(sample_data.variables{i}.name, 'salinity');
+                    break
+                end
+            end
+        end
+        
+        progress(control, 'synTS', 1, 0, [], '')
+    else
+        progress(control, 'synTS', -1)
+    end
+    
+    
+%%
+%
+% Read CSIRO Atlas of Regional Seas for climatology data
+%
+    if control.CARS
+        progress(control, 'synTS', 1, 2, [], '')
+        
+        sample_data = get_climate(sample_data);
+        progress(control, 'synTS', 1, 0, [], '')
+    end
+    
+%%
+%
+% Read Net primary production data
+%
+    if control.npp
+        progress(control, 'synTS', 2, 3, [], '')
+        
+        sample_data = get_npp(sample_data,control.npp_path);
+        progress(control, 'synTS', 1, 0, [], '')
+    end
+    
+    
+%%
+%
+% Apply sound speed and absorption corrections to the data set.
+%
+    if control.sound_speed
+        progress(control, 'sound speed', [], 0, [], '')
+        %##
+        sample_data = correct_sound_speed(sample_data, control.soundspeed_formula, control.soundabsorption_formula);
+        progress(control, 'sound speed', 1, 0, [], '')
+    else
+        progress(control, 'sound speed', -1)
+    end
+%%
+%
+% Final user edit of metadata
+% Automatically populated fields have values.
+%
+    if ~isempty(sample_data)
+        if ~strcmp(pwd,imos_path) && exist(imos_path,'dir')
+            cd(imos_path);
+        end
+
+        sample_data = finaliseData(sample_data, ev_files,0,sample_data.toolbox_version);
+        % remove FillValues_ for cell data
+        for k=1:length(sample_data.dimensions)
+            if iscell(sample_data.dimensions{k}.data) && isfield(sample_data.dimensions{k}, 'FillValue_')
+                sample_data.dimensions{k} = rmfield(sample_data.dimensions{k}, 'FillValue_');
+            end
+        end
+        for k=1:length(sample_data.variables)
+            if iscell(sample_data.variables{k}.data) && isfield(sample_data.variables{k}, 'FillValue_')
+                sample_data.variables{k} = rmfield(sample_data.variables{k}, 'FillValue_');
+            end
+        end
+    end   
+    
+    if control.review_metadata
+        progress(control, 'review metadata', [], 0, [], '')
+        %##
+        sample_data = review_metadata(sample_data);
+        progress(control, 'review metadata', 1, 0, [], '')
+    else
+        progress(control, 'review metadata', -1)
+    end
+%%        
+%
+% drop to matlab command prompt to allow review of data
+%
+    if control.matlab_view
+        progress(control, 'matlab_view', [], 0, [], '')
+        fprintf('Review sample_data\ntype return to continue\n');
+        keyboard
+        progress(control, 'matlab_view', 1, 0, [], '')
+    else
+        progress(control, 'matlab_view', -1)
+    end
+    
+    control.sample_data = sample_data;
+    
+%%
+%
+% Write IMOS format NetCDF file.
+%
+    if control.netcdf                
+        ncfile = fullfile(control.netcdf_directory, genIMOSFileName(sample_data, 'nc'));
+        if exist(ncfile, 'file') && control.overwrite
+            delete(ncfile)
+        end
+        
+        progress(control, 'export NetCDF', [], 0, [], ncfile)
+        %##
+        ncfile = exportNetCDF(sample_data, control.netcdf_directory);
+        control.netcdf_output = ncfile;
+        
+        progress(control, 'export NetCDF', 1, 0, [], ncfile)
+    else
+        control.netcdf_output = [];
+        progress(control, 'export NetCDF', -1)
+    end
+    
+
+    % finished with IMOS-toolbox
+    cd (basoop_dir)
+    
+    %%
+    %
+    % visualize echograms and create .png of  from netcdf file.
+    %
+    if control.viz
+        progress(control, 'visualise NetCDF', [], 0, [], ncfile)
+        %##
+        if length(control.channel) == 1
+            viz_sv(ncfile,'','sun');
+        else
+            data = viz_sv(ncfile,'','sun','channel',1);        % write .png of channel 1 as ncfile_chn.png
+            viz_sv(data,data.Sv,'', 'title', 'Sv mean (dB re 1 m-1)','range',[],'noplots'); % write .png of channel 1 as ncfile.png
+            for i=2:length(control.channel)
+                viz_sv(data,data.Sv,'', 'title', 'Sv mean (dB re 1 m-1)', ...
+                    'ypos',2+i/10,'sun','channel',i,'range',[]);
+                viz_sv(data,data.Svraw,[], 'title', 'Sv mean (dB re 1 m-1), Unfiltered data', ...
+                    'ypos',1+i/10,'sun','channel',i,'range',[] );
+                viz_sv(data,data.pg,[], 'title','percent accepted', ...
+                    'ypos',i/10,'sun','channel',i,'range',[0 100]);
+            end
+        end
+        progress(control, 'visualise NetCDF',  1, 0)
+    else
+        progress(control, 'visualise NetCDF', -1)
+    end
+    
+    %%
+    %
+    % All done!
+    %
+    % report time taken.
+    control.telapsed = toc(control.tstart);
+    fclose('all');
+    fprintf('Program completed in %.1f minutes\n', (control.telapsed)/60);
+    
+    
+    
+    
+function progress(control, section, i, n, start, message)
+% Outputs progress messages to the command prompt and possibly GUI.
+%
+% Inputs:
+%   control     structure containing fields:
+%       progress    function to call having the same parameters as this.
+%                   May be empty. May be a function that interacts with a
+%                   GUI
+%   section     name of section being processed, may relate to GUI tags
+%   i           current step
+%   n           number of steps
+%   start       tic at start of process
+%   message     text message to display
+%
+%   if i is empty ignore i and n
+%   if i < 0 section is 'skipped'
+%   if i > n section is 'completed'
+%   if start is not empty and 0<= i <= n display elapsed time
+%
+
+if nargin < 2;      section = '';       end
+if nargin < 3;      i = [];             end
+if nargin < 4;      n = [];             end
+if nargin < 5;      start = [];         end
+if nargin < 6;      message = [];       end
+
+if control.verbosity > 0
+    if isempty(i)
+        fprintf('%s: %s   %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'), section, message);
+    elseif i < 0
+        fprintf('%s: %s skipped\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'), section);
+    elseif i <= n
+        if control.verbosity > 1
+            if isempty(start)
+                fprintf('%s: %s processing %d/%d   %s\n', ...
+                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), section, i, n, message);
+            else
+                fprintf('%s: %s processing %d/%d  elapsed: %s  %s\n', ...
+                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), section, i, n, ...
+                    datestr(toc(start)/86400, 'HH:MM:SS'), message)
+            end
+        end
+    else
+        fprintf('%s: %s completed\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'), section);
+    end
+end
+
+if isfield(control, 'progress') && ~isempty(control.progress)
+    control.progress(section, start, i, n, message)
+end
+
+function EvApp = getEvApp(EvApp, echoview)
+% Returns a handle to a COM object of an EchoviewApplication.
+%
+% If the input EvApp is empty new ActiveX server is created, otherwise it
+% is reused.
+%
+% echoview is the active X command to run echoview
+% 'EchoviewCom.EvApplication'
+
+if isempty(EvApp)
+    try
+        EvApp = actxserver(echoview);
+    catch e
+        EvApp = [];
+        fprintf('Couldn''t create ActiveX server for echoview\n%s\n', e.message);
+    end
+end
+
+function output_path = getOutputPath(processed_directory, first_file, last_file)
+% determine the directory to use as the base for outputting results based
+% on the first and last file of the dataset.
+%
+% Inputs:
+%   processed_directory - usually 'Q:\processed_data\'
+%   first_file - path of the first .raw file to be included
+%   last_file - path of the last .raw file to be included
+%
+% Outputs:
+%   output_path = processed_directory\vessel\survey\start-end\
+%   where vessel, survey, start and end are derived from the path of the
+%   first_file and last_file.
+
+    first_file(first_file == '\') = '/';
+    delimiters = strfind(first_file, '/');
+    
+    if isempty(delimiters)
+        error('Can not find directory of file to process: %s\n', first_file)
+    end
+    
+    if delimiters(1) == 1   % UNC notation  \\fstas2-hba\CMAR-Share3\
+        offset = 2;
+    else                    % drive notation Q:\
+        offset = 0;
+    end
+    
+    if length(delimiters) < offset +4
+        warning(['Unable to find vessel and survey in path\n' ...
+            'Expected: Q:\\Processed_data\\Vessel\\Survey\\file.raw\n'...
+            'Got:      %s\n'], first_file);
+        output_path = 'Could not determine vessel and survey';   % Not an error if result is never used
+        return
+    end
+    
+    try
+        first_date = '';
+        last_date = '';
+        first_date = simrad_date_string(first_file);
+        last_date = simrad_date_string(last_file);
+    catch e     %#ok<NASGU>
+    end
+    
+    output_path = ...
+        fullfile(processed_directory, ...                               % Q:\Processed_data
+        first_file(delimiters(offset + 2) + 1:delimiters(offset + 3) - 1), ...  % vessel
+        first_file(delimiters(offset + 3) + 1:delimiters(offset + 4) - 1), ...  % survey
+        [first_date '-' last_date]);                                            % Date time range
+
+function Process_output_root_path = getOutputRoot(control)
+% Determine the root directory for outputing files
+%
+
+if control.use_alt_ev_files
+    Process_output_root_path = fileparts(fileparts(control.alt_ev_files));
+else
+    [~, Process_output_root_path] = getFileSets(control);
+end
+        
+function [file_sets, Process_output_root_path] = getFileSets(control)
+% Determine the location and break up of ev files.
+%
+% Inputs - a structure containing:
+%   control.transit_data_files  Name of a file containing a list of data
+%                               files (ES60 .raw or .ek5)
+%   control.time_block          Number of hours for each file set
+%   control.processed_directory Name of directory for processed data,
+%                               usually 'Q:\processed_data\'
+%
+% Outputs:
+%   file_sets                   cell array of cell array of filenames
+%   Process_output_root_path    Directory used as the base for processing
+%                               this data set.
+%
+% 
+
+    if ~exist(control.transit_data_files, 'file')
+        error('Transit data files not found: %s', control.transit_data_files);
+    end
+    file_sets = generate_filelists(control.transit_data_files,  ...
+        control.time_block);
+    if isempty(file_sets)
+        error('No files found in %s', control.transit_data_files);
+    end
+    Process_output_root_path = getOutputPath(control.processed_directory, ...
+        file_sets{1}{1}, file_sets{end}{end});
+       
+function [ev_files, Process_output_root_path] = get_ev_files(control, ev_filelist)
+% Returns the list of EchoView worksheets (.ev files) for this data set.
+%
+% Inputs - a structure containing:
+%   control.transit_data_files  Name of a file containing a list of data
+%                               files (ES60 .raw or .ek5) *
+%   control.time_block          Number of hours for each file set *
+%   control.processed_directory Name of directory for processed data,
+%                               usually 'Q:\processed_data\' *
+%   control.worksheet_directory Name of sub directory holding worksheets,
+%                               usually 'Echoview_worksheets'
+%   ev_filelist                 Name of file containing list of .ev files
+% * - only used if ev_filelist is empty
+%
+% Outputs:
+%   ev_files                    cell array of filenames of .ev files.
+%   Process_output_root_path    Directory used as the base for processing
+%                               this data set.
+%
+if isempty(ev_filelist)
+    [file_sets, Process_output_root_path] = getFileSets(control);
+    ev_filelist = ['Ev_files_' simrad_date_string(file_sets{1}{1}) '.txt'];
+    ev_filelist = fullfile(Process_output_root_path, ...
+        control.worksheet_directory, ev_filelist);
+end
+
+% read file list
+if exist(ev_filelist, 'file') == 2
+    fid = fopen(ev_filelist,'r');
+    datafilelist = textscan(fid,'%q', ...
+        'commentStyle', '#', ...
+        'delimiter', '');
+    fclose(fid);
+    ev_files = datafilelist{1};
+    if isempty(ev_files)
+        error(['No EV files listed in: ' ev_filelist])
+    else
+        Process_output_root_path = fileparts(fileparts(ev_files{1}));
+    end
+else
+    error(['Can''t find list of EV files: ' ev_filelist])
+end
+
+

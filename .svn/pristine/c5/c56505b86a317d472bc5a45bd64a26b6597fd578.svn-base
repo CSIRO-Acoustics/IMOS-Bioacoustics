@@ -1,0 +1,16 @@
+S, platform_code        = 
+S, ship_name			= Kaharoa
+S, ship_type			= Ship, research
+S, ship_code			= 
+S, ship_callsign		= ZM7552 
+S, ship_alt_callsign	= 
+S, ship_imo             = 
+S, ship_operator		= NZ National Institute of Water and Atmospheric Research
+S, ship_home_port       = 
+N, ship_length          = 28.0
+N, ship_breadth         =  8.2
+N, ship_tonnage         = 
+N, ship_engine_power    = 
+S, ship_noise_design    = 
+S, ship_acknowledgement = Data collected by NIWA https://www.niwa.co.nz/.
+S, ship_comments        =

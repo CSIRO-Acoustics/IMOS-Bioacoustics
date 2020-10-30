@@ -1,0 +1,298 @@
+function [listFile,infFile,gpsFile,pitchFile,rollFile,depthFile] = getGPS(infiles, outfile, varargin)
+% Register takes one or more EK60 compatible files and generates:
+% outfile_data_files.txt - list of files if length(infiles > 1)
+% outfile.inf -
+% outfile.gps.csv
+% outfile.pitch.csv
+% outfile.roll.csv
+% outfile.depth.csv
+%
+% Inputs
+%       infiles - cell array of file names
+%       outfile - root name of output files
+%
+
+% get list of files if not provided
+if nargin < 1
+    infiles='';
+end
+
+if isempty(infiles) || ~iscell(infiles)
+       
+    [files,path] = uigetfile('*.raw','Select EK60 files',infiles,'MultiSelect','on');
+    if iscell(files)
+        infiles = cell(size(files));
+        for i = 1:length(files)
+            infiles{i} = fullfile(path,files{i});
+        end
+    elseif files == 0
+        error('No files specified');
+    else
+        infiles = cell(1);
+        infiles{1} = fullfile(path,files);
+    end
+end
+
+% get outfile if not provided
+if nargin < 2 
+    outfile = '';
+end
+if isempty(outfile) || exist(outfile,'dir') == 7
+    [file,path] = uiputfile('*','Specify the base name for output files',outfile);
+    outfile = fullfile(path,file);
+end
+
+% check arguments
+info = 1;       % if true generate .inf file otherwise don't generate stats
+detail = 'rawheader';
+
+for i = 3:nargin
+    if strncmpi(varargin{i-2}, 'noinf', 5)
+        % don't generate .inf file, around 5% faster
+        info = 0;
+        detail = 'noraw';
+    end
+end
+
+% output files, 
+listFile  = '';
+infFile   = '';
+gpsFile   = '';
+pitchFile = '';
+rollFile  = '';
+depthFile = '';
+list  = -1;
+inf   = -1;
+gps   = -1;
+pitch = -1;
+roll  = -1;
+depth = -1;
+
+if length(infiles) > 1
+    listFile = [outfile '_data_files.txt'];
+    list  = fopen(listFile,'w');
+    if list < 1 
+        error(['Unable to open list file:',listFile]);
+    end
+end
+
+if info
+    infFile = [outfile '.inf'];
+    inf   = fopen(infFile,'w');
+end
+
+% statistics variables, used to write .inf file
+gpscount=0;     % number of GPS fixes
+count = [];     % number of pings per channel
+settings = {};  % channel power and pulse changes
+minlat = 999;   % southern most latitude
+maxlat = -999;  % northern most latitude
+minlon = 999;   % western most longitude
+maxlon = -999;  % eastern most longitude
+start = [];     % first GPS fix
+last = [];      % last GPS fix
+
+% process files
+for f = 1:length(infiles)
+    in = fopen(infiles{f});
+    
+    fprintf('%s %d/%d: %s\n', datestr(now,'HH:MM:SS'), f, length(infiles), infiles{f});
+    
+    if list > 0
+        fprintf(list, '%s\n', infiles{f});
+    end
+    
+    datagram = readdatagram(in);
+    
+    if ~strcmp(datagram.datagramtype,'CON0')
+        error(['Expecting config telegram at start of ' infiles{f}]);
+    end
+    
+    con = datagram.CON0;
+    if con.transducercount ~= length(count)
+        if ~isempty(count)
+            error(['Incompatible files - transducer count changes \n' ...
+                num2str(length(count)) ': ' infiles{f-1} '\n' ...
+                num2str(con.transducercount) ': ' infiles{f} ]);
+        end
+        
+        count = zeros(con.transducercount,1);
+        power = zeros(con.transducercount,1);
+        pulse = zeros(con.transducercount,1);
+    end
+    
+    datagram = readdatagram(in,detail);
+    while ~isempty(datagram)
+        if info && strcmp(datagram.datagramtype, 'RAW0')
+            % get settings and counts for .inf file.
+            channel = datagram.RAW0.channel;
+            count(channel) = count(channel) +1; %#ok<AGROW> it doesn't the analyser is confused
+            
+            if power(channel) ~= datagram.RAW0.transmitpower || ...
+               pulse(channel) ~= datagram.RAW0.pulselength
+                settings{end+1} = ...
+                    ['[' trim(con.transducer(channel).channelid) ']  (' ...
+                    datestr(datagram.datetime, 'yyyy-mm-dd HH:MM:SS') ')  ' ...
+                    num2str(datagram.RAW0.pulselength * 1000000) ' us   ' ...
+                    num2str(datagram.RAW0.transmitpower) ' W']; %#ok<AGROW>
+                power(channel) = datagram.RAW0.transmitpower;
+                pulse(channel) = datagram.RAW0.pulselength;
+            end
+        end
+        
+        if strcmp(datagram.datagramtype, 'NME0')
+            if isfield(datagram.NME0, 'latitude')
+                
+                % calculate .inf file statistics
+                if info
+                    gpscount = gpscount + 1;
+                    if isempty(start)
+                        start = datagram;
+                        distance = 0;
+                        last = datagram;
+                    end
+                    if datagram.datetime - last.datetime < 1/48     %don't count gaps bigger than half an hour
+                        distance = distance + dist(last.NME0, datagram.NME0);
+                    end
+                    last = datagram;
+                    
+                    if minlat > datagram.NME0.latitude ; minlat = datagram.NME0.latitude ; end
+                    if maxlat < datagram.NME0.latitude ; maxlat = datagram.NME0.latitude ; end
+                    if minlon > datagram.NME0.longitude ; minlon = datagram.NME0.longitude ; end
+                    if maxlon < datagram.NME0.longitude ; maxlon = datagram.NME0.longitude ; end
+                end
+                
+                % calculat UTC offset if GPS has time
+                offset = [];
+                if isfield(datagram.NME0, 'time')
+                    offset = datagram.datetime - datagram.NME0.time;
+                    offset = offset - round(offset);
+                    offset = offset * 24 * 60 * 60;
+                end
+                
+                if gps == -1
+                    gpsFile = [outfile '.gps.csv'];
+                    gps   = fopen(gpsFile,'w');
+                    fprintf(gps,'GPS_date,GPS_time,GPS_milliseconds,Latitude,Longitude,UTC_offset\n');
+                end
+                
+                printtime(gps,datagram.datetime);
+                fprintf(gps,'%g,%g', datagram.NME0.latitude, datagram.NME0.longitude);
+                if ~isempty(offset)
+                    fprintf(gps,',%.3f', offset);
+                end
+                fprintf(gps,'\n');
+            end
+            
+            if strcmp(datagram.NME0.sentence, 'PRY')
+                % write pitch and roll .csv files
+                
+                if pitch < 0
+                    % open the files the first time we want to use them
+                    pitchFile = [outfile '.pitch.csv'];
+                    rollFile = [outfile '.roll.csv'];
+                    pitch = fopen(pitchFile,'w');
+                    roll  = fopen(rollFile,'w');
+                    fprintf(pitch,'Pitch_date,Pitch_time,Pitch_milliseconds,Pitch_angle\n');
+                    fprintf(roll,'Roll_date,Roll_time,Roll_milliseconds,Roll_angle\n');
+                end
+                
+                printtime(pitch,datagram.time);
+                fprintf(pitch,'%.2f\n',datagram.NME0.pitch);
+                printtime(roll,datagram.time);
+                fprintf(roll,'%.2f\n',datagram.NME0.roll);
+                
+            end
+            
+            if isfield(datagram.NME0,'depth')
+                if depth < 0
+                    depthFile = [outfile '.depth.csv'];
+                    depth = fopen(depthFile,'w');
+                    fprintf(depth,'Depth_date,Depth_time,Depth_milliseconds,Platform_Depth\n');
+                end
+                
+                printtime(depth,datagram.time);
+                fprintf(depth,'%.2f\n',datagram.NME0.depth);              
+                
+            end
+        end
+        
+        datagram = readdatagram(in,detail);
+    end
+    
+    fclose(in);
+end
+
+if info
+    % write .inf file
+    fprintf(inf,'\nTrack Data File:     ');
+    [~, name, ext] = fileparts(outfile);
+    fprintf(inf, [name ext]);
+    fprintf(inf,'\nTrack Data Path:     ');
+    fprintf(inf, outfile);
+    
+    fprintf(inf,'\n\nChannels:     \n  ');
+    for i = 1:con.transducercount
+        fprintf(inf,trim(con.transducer(i).channelid));
+        fprintf(inf,' : %d\n  ', count(i));
+    end
+    
+    fprintf(inf,'GPS fixes : %d', gpscount);
+    
+    for i =1:length(settings);
+        fprintf(inf,'\n        ');
+        fprintf(inf,settings{i});
+    end
+    
+    duration = (last.datetime - start.datetime) * 24;
+    speed = distance / duration;
+    fprintf(inf,'\n\nNavigation Totals:\nTotal Time:         % 9.4f hours\n', duration);
+    fprintf(inf,'Total Track Length: % 9.4f km\n', distance *1.852);
+    fprintf(inf,'Average Speed:    % 9.4f km/hr (%.4f knots)\n', speed * 1.852, speed);
+    
+    fprintf(inf,'\nStart of Data:\nTime:  ');
+    fprintf(inf,datestr(start.datetime,'yyyy-mm-dd HH:MM:SS.FFF'));
+    dv=datevec(start.datetime);
+    dv(2:6)=0;
+    fprintf(inf,'  JD%d\n',floor(start.datetime - datenum(dv)));
+    fprintf(inf,'Lon:  % 9.4f    Lat: % 9.4f\n', start.NME0.longitude, start.NME0.latitude);
+    
+    fprintf(inf,'\nEnd of Data:\nTime:  ');
+    fprintf(inf,datestr(last.datetime,'yyyy-mm-dd HH:MM:SS.FFF'));
+    dv=datevec(last.datetime);
+    dv(2:6)=0;
+    fprintf(inf,'  JD%d\n',floor(last.datetime - datenum(dv)));
+    fprintf(inf,'Lon:  % 9.4f    Lat: % 9.4f\n', last.NME0.longitude, last.NME0.latitude);
+    
+    fprintf(inf,'\nLimits\n');
+    fprintf(inf,'Minimum Longitude:     % 9.4f   Maximum Longitude:     % 9.4f\n', minlon, maxlon);
+    fprintf(inf,'Minimum Latitude:      % 9.4f   Maximum Latitude:      % 9.4f\n', minlat, maxlat);
+    fclose(inf);
+end
+
+if gps > 0
+    fclose(gps);
+end 
+if list > 0
+    fclose(list);
+end
+if pitch > 0
+    fclose(pitch);
+    fclose(roll);
+end
+
+function printtime(fid, time)
+% Print time stamp in echoview csv format
+fprintf(fid,datestr(time, 'yyyy-mm-dd,HH:MM:SS,FFF,'));
+
+function distance = dist(from, to)
+% returns approximate distance in Nm
+% upgrade to a more accurate calculation if you want better results
+
+distance = sqrt((to.latitude - from.latitude) ^2 + ...
+    (cos(to.latitude * pi() / 180) * (to.longitude - from.longitude)^2)) * 60;
+
+
+function text=trim(text)
+text(text == 0) = [];
+text=strtrim(text);

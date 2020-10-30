@@ -1,0 +1,122 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	98.02.06.05.46.07;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@% getCSIRO:  Extract CSIRO standard level CTD data (from csiro_ctd.nc) 
+%
+% ***   WARNING  -  Some of this data is subject to embargo  ***
+%
+% INPUTS
+%  lim     [w e s n] define geographic extent (eg: [100 130 -40 -10])
+%  var     Variable name string: 't' 's' 'neut_density' etc..
+%  deps    [upper lower] limits of standard levels to extract (eg [1 33])
+%  var2    [optional] name of second variable to extract at the same depths
+%  var3    [optional] name of third variable to extract at the same depths
+% OUTPUTS
+%  la      Latitude of extracted casts
+%  lo      Longitude "    "       "
+%  tim     Time, days since 1900, "
+%  dat1    [ncast X ndeps] First variable
+%  prid    Profile ID comprised of: vCCCCsss v=vessel CCCC=cruise sss=station
+%  dat2    [ncast X ndeps] Second variable, if requested
+%  dat3    [ncast X ndeps] Third variable, if requested
+%
+% USAGE
+%  [la,lo,tim,dat1,prid,{dat2,dat3}]=getCSIRO(lim,var,deps{,var2,var3});
+
+%  Jeff Dunn  Feb 1998
+
+function [la,lo,tim,dd,prid,dd2,dd3]=getCSIRO(lim,var,deps,var2,var3)
+
+global silent;
+
+fname = '/home/eez_data/hydro/csiro_ctd';
+
+if nargin==0
+  disp('[la,lo,tim,dd,prid,{dd2}]=getCSIRO(lim,var,deps{,var2})');
+  return;
+end
+
+if max(size(deps))==1
+  deps = [deps deps];
+end
+
+la = getcdf(fname,'lat');
+lo = getcdf(fname,'lon');
+tim = getcdf(fname,'time');
+
+dd = getcdf(fname,var,[-1 deps(1)],[1 deps(2)]);
+if nargin > 3
+ dd2 = getcdf(fname,var2,[-1 deps(1)],[1 deps(2)]);
+ if nargin > 4
+   dd3 = getcdf(fname,var3,[-1 deps(1)],[1 deps(2)]);
+ end 
+end
+prid = getcdf(fname,'profilid');
+
+[m,n] = size(dd);
+if n~=1
+  dd = dd';
+  if nargin > 3
+    dd2 = dd2';
+    if nargin > 4
+      dd3 = dd3';
+    end
+  end
+end
+
+%if ~silent
+%  disp('Post 8/90 Franklin data ONLY');
+%end
+%rej = find(prid<19009000);
+%if ~isempty(rej)
+%  la(rej) = [];
+%  lo(rej) = [];
+%  tim(rej) = [];
+%  dd(rej,:) = [];
+%  prid(rej) = [];
+%  if nargin > 3
+%    dd2(rej,:) = [];
+%    if nargin > 4
+%      dd3(rej,:) = [];
+%    end
+%  end
+%end
+
+rej = find(lo<lim(1) | lo>lim(2) | la<lim(3) | la>lim(4) | isnan(lo) ...
+    | isnan(la));
+if ~isempty(rej)
+  la(rej) = [];
+  lo(rej) = [];
+  tim(rej) = [];
+  dd(rej,:) = [];
+  prid(rej) = [];
+  if nargin > 3
+    dd2(rej,:) = [];
+    if nargin > 4
+      dd3(rej,:) = [];
+    end
+  end
+end
+
+
+%----------------- End of getCSIRO.m -------------------------------
+@

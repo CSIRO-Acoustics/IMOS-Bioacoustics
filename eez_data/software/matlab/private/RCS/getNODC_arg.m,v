@@ -1,0 +1,297 @@
+head	1.6;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.6
+date	97.02.12.03.34.28;	author dunn;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	96.10.30.23.39.10;	author dunn;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	96.04.24.05.32.13;	author dunn;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	96.04.16.03.43.04;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	96.04.02.05.58.18;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	96.03.31.22.32.51;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@Function called by getNODC_var (to decode input arguments).
+@
+
+
+1.6
+log
+@Add a new variable (neutral density).
+@
+text
+@function [] = getNODC_arg( arg );
+
+% Used by getNODC_var to decode input arguments. There must be a better way!
+%
+%  Copyright (C) J R Dunn, CSIRO, 
+%  $Revision: 1.5 $    Last revision $Date: 1996/10/30 23:39:10 $
+
+global getN_varpr; global getN_varnm; global getN_deps; global getN_getd;
+global getN_scr; global getN_nvar;
+
+
+if getN_getd 
+  if isstr(arg)
+    error(['Expecting a depth range instead of argument ' arg]);
+  else
+    getN_getd = 0;
+    getN_deps = [getN_deps; arg];
+  end
+else
+  if ~isstr(arg)
+    error(['Expecting a variable type string in argument list.']);
+  else
+    getN_getd = 1;
+    getN_nvar = getN_nvar+1;
+
+    if strcmp(arg,'t')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'t');
+    elseif strcmp(arg,'ts')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'t');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'ft')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'t_flag');
+
+    elseif strcmp(arg,'s')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'s');
+    elseif strcmp(arg,'ss')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'s');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'fs')
+      getN_varpr = 'ts';
+      getN_varnm = str2mat(getN_varnm,'s_flag');
+
+    elseif strcmp(arg,'o')
+      getN_varpr = 'o2';
+      getN_varnm = str2mat(getN_varnm,'o2');
+    elseif strcmp(arg,'os')
+      getN_varpr = 'o2';
+      getN_varnm = str2mat(getN_varnm,'o2');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'fo')
+      getN_varpr = 'o2';
+      getN_varnm = str2mat(getN_varnm,'o2_flag');
+
+    elseif strcmp(arg,'n')
+      getN_varpr = 'no3';
+      getN_varnm = str2mat(getN_varnm,'no3');
+    elseif strcmp(arg,'ns')
+      getN_varpr = 'no3';
+      getN_varnm = str2mat(getN_varnm,'no3');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'fn')
+      getN_varpr = 'no3';
+      getN_varnm = str2mat(getN_varnm,'no3_flag');
+
+    elseif strcmp(arg,'p')
+      getN_varpr = 'po4';
+      getN_varnm = str2mat(getN_varnm,'po4');
+    elseif strcmp(arg,'ps')
+      getN_varpr = 'po4';
+      getN_varnm = str2mat(getN_varnm,'po4');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'fp')
+      getN_varpr = 'po4';
+      getN_varnm = str2mat(getN_varnm,'po4_flag');
+
+    elseif strcmp(arg,'i')
+      getN_varpr = 'si';
+      getN_varnm = str2mat(getN_varnm,'si');
+    elseif strcmp(arg,'is')
+      getN_varpr = 'si';
+      getN_varnm = str2mat(getN_varnm,'si');
+      getN_scr(getN_nvar) = 1;
+    elseif strcmp(arg,'fi')
+      getN_varpr = 'si';
+      getN_varnm = str2mat(getN_varnm,'si_flag');
+
+    elseif strcmp(arg,'g')
+      getN_varnm = str2mat(getN_varnm,'neut_density');
+
+    elseif strcmp(arg,'cp')
+      getN_varnm = str2mat(getN_varnm,'csiro_profile_no');
+      getN_getd = 0;
+      getN_deps = [getN_deps; 0 0];
+    elseif strcmp(arg,'cf')
+      getN_varnm = str2mat(getN_varnm,'csiro_flag');
+      getN_getd = 0;
+      getN_deps = [getN_deps; 0 0];
+    elseif strcmp(arg,'cr')
+      getN_varnm = str2mat(getN_varnm,'cruise_no');
+      getN_getd = 0;
+      getN_deps = [getN_deps; 0 0];
+    elseif strcmp(arg,'dp')
+      getN_varnm = str2mat(getN_varnm,'number_of_depths');
+      getN_getd = 0;
+      getN_deps = [getN_deps; 0 0];
+    elseif strcmp(arg,'co')
+      getN_varnm = str2mat(getN_varnm,'country_code');
+      getN_getd = 0;
+      % Country code is a 2 element variable:
+      getN_deps = [getN_deps; 1 2];
+
+    else
+      disp(['### Do NOT understand code ' arg]);
+      getN_nvar = getN_nvar-1;
+    end
+
+  end
+end
+@
+
+
+1.5
+log
+@Added "number_of_depths" variable
+@
+text
+@d6 1
+a6 1
+%  $Revision: 1.4 $    Last revision $Date: 1996/04/24 05:32:13 $
+d91 3
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d6 1
+a6 1
+%  $Revision: 1.3 $    Last revision $Date: 1996/04/16 03:43:04 $
+d102 4
+@
+
+
+1.3
+log
+@Expand to allow more variables to be extracted, and screening on data flags.
+@
+text
+@d6 1
+a6 1
+%  $Revision: 1.2 $    Last revision $Date: 1996/04/02 05:58:18 $
+d107 2
+a108 1
+      getN_deps = [getN_deps; 0 0];
+@
+
+
+1.2
+log
+@Bug fix
+@
+text
+@d1 1
+a1 1
+function [varp,varnm,deps,getd] = getNODC_arg(varp,varnm,deps,getd,arg);
+d6 1
+a6 1
+%  $Revision: 1.1 $    Last revision $Date: 1996/03/31 22:32:51 $
+d8 5
+a12 1
+if getd 
+d16 2
+a17 2
+    getd = 0;
+    deps = [deps; arg];
+d23 3
+a25 1
+    getd = 1;
+d27 10
+a36 2
+      varp = 'ts';
+      varnm = str2mat(varnm,'t');
+d38 10
+a47 2
+      varp = 'ts';
+      varnm = str2mat(varnm,'s');
+d49 10
+a58 2
+      varp = 'o2';
+      varnm = str2mat(varnm,'o2');
+d60 10
+a69 2
+      varp = 'no3';
+      varnm = str2mat(varnm,'no3');
+d71 10
+a80 2
+      varp = 'po4';
+      varnm = str2mat(varnm,'po4');
+d82 32
+a113 7
+      varp = 'si';
+      varnm = str2mat(varnm,'si');
+    elseif strcmp(arg,'c')
+      varnm = str2mat(varnm,'csiro_profile_no');
+      getd = 0;
+      deps = [deps; 0 0];
+    end  
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+function [var_pre,varnm,deps,getd] = getNODC_arg(varnm,deps,getd,arg);
+d6 1
+a6 1
+%  $Revision:$    Last revision $Date:$
+d21 1
+a21 1
+      var_pre = 'ts';
+d24 1
+a24 1
+      var_pre = 'ts';
+d27 1
+a27 1
+      var_pre = 'o2';
+d30 1
+a30 1
+      var_pre = 'no3';
+d33 1
+a33 1
+      var_pre = 'po4';
+d36 1
+a36 1
+      var_pre = 'si';
+a44 1
+
+@

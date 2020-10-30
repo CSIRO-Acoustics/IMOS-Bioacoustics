@@ -1,0 +1,40 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	97.08.20.04.16.57;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@% DO_BLANKING:  Set map values to nan if that point is below ocean bottom
+%
+%   in:    A [101,161] OceansEEZ map
+%   dep:   The standard depth of that map (ie between 1 and 33)
+% 
+% JRD 20/8/97
+
+function [out] = do_blanking(in,dep)
+
+if ~exist('deepest')
+  global deepest;
+  load /home/eez_data/atlas/deepest;
+end
+
+ii = find(deepest<dep);
+out = in;
+out(ii) = nan*ones(size(ii));
+@

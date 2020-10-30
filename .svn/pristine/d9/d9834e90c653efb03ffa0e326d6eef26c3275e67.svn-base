@@ -1,0 +1,262 @@
+function nc2ev(ncfile, variable_list);
+%%
+% function to convert variables named in the variable_list to Echoview
+% .sv.csv format
+% stage 1: export names variable to echoview ascii format
+% stage 2: automatically import into an Ev file
+%
+% Preconditions:
+%   full path to variable ncfile is given
+%   directory for storing the Echoview outputs will be created based on the
+%   path to the variable ncfile. Evfile will also be created in that
+%   directory
+% 
+%   variable_list is a vector of cell values:- e.g. [{'Sv'}, {'Sv_raw'}
+%   if empty (i.e. pass []) then will defer to the hard-coded variable
+%   values to plot given below
+
+%% - extract data from ncfile using the utility ncfile (note this function may eventually be built into viz_sv in which case this step would be removed. 
+if isequal(nargin,1)
+    % default exports
+    variable_list = [{'Sv'}    {'Svraw'}    {'signal_noise'}    {'pg'}];      
+end    
+template_dir = 'Q:\IMOS_BASOOP\Echoview_NetCDF'; % set this as location to find echoview templates for netCDF format data. 
+
+%% create a folder for the echoview ascii outputs, export if needed, create ev file from exports
+    [dir, file] = fileparts(ncfile);
+    if ~isdir([dir '\echoview_ascii'])
+        mkdir([dir '\echoview_ascii']);
+    end
+    cd([dir '\echoview_ascii'])
+    if isempty(ls([dir '\echoview_ascii'])); 
+        %[data] = viz_sv(ncfile,'','noplots','all');
+        [data] =  export_to_ascii(ncfile,variable_list);
+    else 
+        redo = questdlg('Echoview Ascii files already exist, do you want to re-export?','Redo export','Yes','No','Yes');
+        if isequal(redo,'Yes')
+            [data] = export_to_ascii(ncfile,variable_list);
+        end
+    end         
+    if ~exist('data') % i.e. did not generate this in the previous stepm then will need to rat it out using viz_sv;
+        [data] = viz_sv(ncfile,'','noplots','all');
+    end
+    if isfile([dir '\echoview_ascii\nc.ev'])        
+        redoev = questdlg('Echoview file nc.ev already exist, do you want to re-create?','Redo ev file','Yes','No','Yes');
+        if isequal(redoev,'Yes')                        
+            delete([dir '\echoview_ascii\nc.ev']) % delete the old file
+            create_ev_from_ascii([dir '\echoview_ascii'],variable_list, template_dir,data); % call to function to create ev files from exports    
+        end
+    else        
+        create_ev_from_ascii([dir '\echoview_ascii'],variable_list, template_dir,data); % call to function to create ev files from exports    
+    end
+
+function [data] = export_to_ascii(ncfile,variable_list)    
+    [data] = viz_sv(ncfile,'','noplots','all');    
+    [dir, file] = fileparts(ncfile);
+    if ~isdir([dir '\echoview_ascii'])
+        mkdir([dir '\echoview_ascii']);
+    end
+    cd([dir '\echoview_ascii'])
+    ns = length(data.depth);
+    h = (data.depth(end) - data.depth(1)) / (ns-1);
+    range = sprintf('%g, %g', data.depth(1) - h/2, data.depth(end) + h/2);
+    %range = sprintf('%g, %g, %g', data.depth(1) - h/2, data.depth(end) + h/2, ns);       
+    for j=1:length(variable_list)    
+        for k=1:length(data.channels)        
+            if isequal(length(data.channels),1) % single freq            
+                if eval(['min(size(data.' variable_list{j} '))']) > 1                        
+                   output_file = [variable_list{j} '_' data.channels{k} '.sv.csv'];
+                   fid = fopen(output_file,'w+');
+                   output_var = variable_list{j};
+                end            
+            elseif eval(['length(size(data.' variable_list{j}, '))'])>2                                 
+                   output_file = [variable_list{j} '_' data.channels{k} '.sv.csv'];                
+                fid = fopen(output_file,'w+');
+                output_var = variable_list{j};            
+            end                                     
+            fprintf(fid,'Ping_date,Ping_time,Range_start,Range_stop,Sample_count\n');
+            for i = 1:length(data.latitude)            
+                dt = datestr(data.time(i), 'yyyy-mm-dd, HH:MM:SS');           
+                Output_data = eval(['{data.' output_var '(:,i,k)};']);                                                         
+                Output_dte = sprintf('%.1f,',Output_data{:});
+                Output_dte = strrep(Output_dte,'-Inf','-999');
+                fprintf(fid,'%s,%s,%d,',...
+                    dt,range,ns);            
+                fprintf(fid,'%s',Output_dte(1:end-1));
+                fprintf(fid,'\n');               
+            end
+            fprintf('exported variable %s\n to %s''\''%s\n',dir,output_var, output_file)        
+        end
+    end
+    % now print out a gps.csv file to same location
+        gid = fopen([dir '\echoview_ascii\position.gps.csv'],'w+');
+        fprintf(gid, 'GPS_date, GPS_time, Latitude, Longitude\n');
+        for i = 1:length(data.latitude)
+            dt = datestr(data.time(i), 'yyyy-mm-dd, HH:MM:SS');
+            fprintf(gid, '%s, %g, %g\n', dt, data.latitude(i), data.longitude(i));
+        end
+    % print out an evl for NASC, normalising to max nasc value for display
+    % purposes
+    for i=1:length(data.channels)
+        max_NASC = max(data.NASC(1,:,i));        
+        max_range = regexp(range, ',','split'); max_range = max_range{2};
+        max_range = str2num(strrep(max_range,' ',''));
+        eval(['fid = fopen(''NASC_' data.channels{i}  '.evl'', ''w+'')']);
+        s = size(data.NASC);
+        fprintf(fid,'EVBD 3 3.00.41\n%d\n',s(2));
+        for j = 1:length(data.latitude)            
+           dt = datestr(data.time(j), 'yyyymmdd HHMMSS0000');      
+           value = data.NASC(1,j,i);
+           normalised_value =  -(max_range*(value/max_NASC) - max_range) ;
+           fprintf(fid, '%s %f 1\n',dt,normalised_value);
+        end
+        fclose(fid);
+    end                
+    fprintf('Finished exporting netCDF contents to Echoview ascii format\n');
+    fclose all;
+
+    
+    
+
+        
+%% 
+function create_ev_from_ascii(asciidir,variable_list, template_dir,data)
+    % use com scripting to create an ev file
+    S = dir(fullfile(asciidir,'*.csv'))  ;  
+    csvfiles = natsortfiles({S.name});
+    %csvfiles = ls([asciidir '\*.csv']);    
+    EvApp = actxserver('EchoviewCom.EvApplication');    
+    EvFile = EvApp.NewFile;        
+    
+    %EvFile = EvApp.OpenFile('Q:\IMOS_BASOOP\Echoview_NetCDF\nc_template.ev'); % HARD CODED - FOR NOW
+    %EvFile  = EvApp.NewFile; % this is a temporary file only
+    cmin = -82; % defaults for all Sv echograms unless otherwise specified
+    crange = 36; % defaults for all Sv echograms unless otherwise specified
+    grid_height = 200;
+    % EvFile = EvApp.OpenFile('Q:\IMOS_BASOOP\nc.ev');    
+    %for i=1:size(csvfiles,1)   
+    
+    % sort the csv files for freq and place position variable at the end. 
+    new_csvlist = []; position_files = [];    
+    for i=1:length(csvfiles);
+        csvfile = csvfiles(i);
+        if strfind(cell2mat(csvfile),'position')
+            position_file = cell2mat(csvfile);
+        else
+            new_csvlist = [new_csvlist;csvfile];
+        end        
+    end
+    csvfiles = [new_csvlist; position_file];        
+    for i=2:length(csvfiles)
+        EvFile.Filesets.Add;        
+    end
+    for i=1:length(csvfiles)
+        fileset2add = cell2mat(csvfiles(i));
+        dt = strfind(fileset2add,'.');
+        fileset2add = fileset2add(1:dt-1);
+        EvFile.Filesets.Item(i-1).Name = fileset2add;
+        datafile = [asciidir '\' cell2mat(csvfiles(i))];
+        EvFile.Filesets.Item(i-1).DataFiles.Add(datafile);
+    end
+    
+    cd(asciidir); 
+    clipboard('copy', [asciidir '\ncdata.evd'])    
+    
+    instructions = ['\n=====================================================\n' ...
+                     'Switch to Echoview\n\n' ...
+                     'Open an echogram (does not matter which one)\n\n' ...
+                     'From the top menu select Echogram/Export/To Echoview Data File Format\n\n' ...
+                     'When the dialog opens "Select All". Do not change quality level (i.e. keep at highest level)\n\n' ...
+                     'and then click the "Export ... button"\n\n' ...
+                     'I have copied the name of the evd file to the clipboard. Type ctrl-v to paste this in\n\n' ...
+                     'to provide the path and filename for evd file\n\n' ...                     
+                     'Switch back to Matlab and click "OK" on this dialog when done. Program will continue\n\n'...
+                     '====================================================\n'];                    
+    uiwait(msgbox(sprintf(instructions,asciidir)));                     
+    EvFile.Close; %exit this file
+                  
+    template_sub_dir = ['F'];
+    for i=1:length(data.channels)
+        template_sub_dir = [template_sub_dir '_' data.channels{i}]
+    end
+    template_sub_dir = strrep(template_sub_dir, 'kHz','');
+    
+    EvFile = EvApp.OpenFile([template_dir '\' template_sub_dir '\nc_template.ev']);
+    if isempty(EvFile)
+         msgbox('ev template file does not exist - need to create this\n');
+    else
+        EvFile.Filesets.Item(0).DataFiles.RemoveAll    % get rid to template dummy file
+        EvFile.Filesets.Item(0).Datafiles.Add([pwd '\ncdata.evd']); % add the previously exported evd file
+    end
+    EvFile.SaveAs([pwd '\nc_viewer.ev])'; 
+    EvFile.Close;                                             
+        
+function [X,ndx,dbg] = natsortfiles(X,varargin)
+% Alphanumeric / Natural-Order sort of a cell array of filename/filepath strings (1xN char).
+%
+% (c) 2012 Stephen Cobeldick
+%
+assert(iscell(X),'First input <X> must be a cell array.')
+tmp = cellfun('isclass',X,'char') & cellfun('size',X,1)<2 & cellfun('ndims',X)<3;
+assert(all(tmp(:)),'First input <X> must be a cell array of strings (1xN character).')
+%
+%% Split and Sort File Names/Paths %%
+%
+% Split full filepaths into file [path,name,extension]:
+[pth,fnm,ext] = cellfun(@fileparts,X(:),'UniformOutput',false);
+% Split path into {dir,subdir,subsubdir,...}:
+pth = regexp(pth,'[^/\\]+','match'); % either / or \ as filesep.
+len = cellfun('length',pth);
+num = max(len);
+vec{numel(len)} = [];
+%
+% Natural-order sort of the file extensions and filenames:
+if nargout<3 % faster:
+	[~,ndx] = natsort(ext,varargin{:});
+	[~,ids] = natsort(fnm(ndx),varargin{:});
+else % for debugging:
+	[~,ndx,dbg{num+2}] = natsort(ext,varargin{:});
+	[~,ids,tmp] = natsort(fnm(ndx),varargin{:});
+	[~,idd] = sort(ndx);
+	dbg{num+1} = tmp(idd,:);
+end
+ndx = ndx(ids);
+%
+% Natural-order sort of the directory names:
+for k = num:-1:1
+	idx = len>=k;
+	vec(:) = {''};
+	vec(idx) = cellfun(@(c)c(k),pth(idx));
+	if nargout<3 % faster:
+		[~,ids] = natsort(vec(ndx),varargin{:});
+	else % for debugging:
+		[~,ids,tmp] = natsort(vec(ndx),varargin{:});
+		[~,idd] = sort(ndx);
+		dbg{k} = tmp(idd,:);
+	end
+	ndx = ndx(ids);
+end
+%
+% Return the sorted array and indices:
+ndx = reshape(ndx,size(X));
+X = X(ndx);
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%natsortfiles        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+
+
+
+
+

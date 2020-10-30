@@ -1,0 +1,23 @@
+There are 4 text files in this folder. 
+
+These text files are used to check our NetCDF for it's compliance with CF 1.6, IMOS 1.4, and ICES 1.10 conventions.
+
+(1) globalattribute.txt
+	This text file contains all mandatory global attributes that is used to check single frequency data.
+	If new global attributes are added, please update this text file.
+
+(2) globalattributeMF.txt
+	This text file is a subset of 'globalattribute.txt' file that is used to check multi-frequency data.
+	If new global attributes (that are not a variable for multi-frequency) are added, please update this text file.
+
+(3) globaltovariableMF.txt
+	This text file is a subset of 'globalattribute.txt' file that is used to check multi-frequency data.
+	If new global attributes (that are variable for multi-frequency) are added, please update this text file.
+	
+(4) datavariables.txt
+	This text file contains 'data variables' that is used to check both single and multi-frequency data.
+	If new variable is added please update this text file.
+
+
+-Haris
+19 June 2018

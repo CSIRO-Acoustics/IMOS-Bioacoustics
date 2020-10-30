@@ -1,0 +1,10 @@
+# pack-refs with: peeled 
+9f01aa99199597dd6954e0e7577922667e2e0f90 refs/remotes/origin/2.5
+3644905c9d11c09d58f0302c646f1f15bd229b01 refs/remotes/origin/2.5.3
+9a27e01780b6a587c5687302c67ad75e58b6dff6 refs/remotes/origin/externalised_config_files
+16fb31a6050ddc75e3786ab058cb15cba2c5b2b0 refs/remotes/origin/flags_and_vertical_context_plots
+5ef14897ced32e772d3f218a1d6356f1dfb482b6 refs/remotes/origin/master
+fcdafe62b98210bea324c080d0e81a0abbffd96a refs/tags/v2.4
+d880c152ddd202aab6987c76b54b710e0ceec4be refs/tags/v2.5
+c49456275c4a32a9163ad6d64e1f0bd1926975f9 refs/tags/v2.5.1
+9f01aa99199597dd6954e0e7577922667e2e0f90 refs/tags/v2.5.2

@@ -1,0 +1,170 @@
+function [cdata, rdata, tdata, bdata, sdata] = convert_resample_to_stdcsv(csvfilelist)
+% function to convert resampled outputs to standard csv format ready for
+% use by process_BASOOP
+%
+% Tim Ryan 16/05/2017
+%
+% precondition. csvfile list is supplied with files in the correct order as
+% per list below                                       
+rawdatafile = csvfilelist{3};
+rawnumsamples = csvfilelist{7};
+cleandatafile = csvfilelist{2};
+rejectdatafile = csvfilelist{4};
+SNRdatafile = csvfilelist{5};
+BNdatafile = csvfilelist{6};
+keyboard
+[cdata] = process_cdata(cleandatafile);               
+[rdata] = process_rdata(rawdatafile,rawnumsamples, cdata);
+[tdata] = process_tdata(rejectdatafile , cdata);    
+[sdata] = process_sdata(SNRdatafile, cdata);
+[bdata] = process_bdata(BNdatafile, cdata);
+
+
+function [cdata] = process_cdata(cleandatafile)
+keyboard
+    % takes raw data file 
+    fid1 = fopen(cleandatafile,'r');    
+    hdr = trim(fgetl(fid1)); % Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present using trim funcion
+    hdr = [hdr ',']; % add an end point
+    hdrdlm = strfind(hdr,','); % location of header delimiters
+    hdrdlm = [0 hdrdlm]; % add starting point
+    for i=1:length(hdrdlm)-1
+        hdrnames{i} = strtrim(hdr(hdrdlm(i)+1:hdrdlm(i+1)-1));
+    end
+    xvarnames = [{'Sv_mean'},{'Layer'},{'Height_mean'},{'Depth_mean'},{'Depth_min'},{'Depth_max'},{'Layer'},{'Skew'},{'Kurtosis'},{'Stdev'}];
+    for i=1:length(xvarnames)
+        eval([xvarnames{i} '= [];'])
+    end
+    % initialise
+        for i=1:length(hdrnames)        
+            eval([hdrnames{i} ' = [];' ]);
+        end
+        while ~feof(fid1) 
+            ln = trim(fgetl(fid1)); % read a line
+                dlm = strfind(ln,','); % locate comma dlimiters
+                vars = ln(1:dlm(length(hdrdlm))-1);   % pull out the variable data associated with headres
+                vardlm = strfind(vars,',');   % locate delimiters associated with variable data
+                vardlm = [1 vardlm];  % add a start point to vector of delimiter locations                                                   
+            dta = ln(dlm(length(hdrdlm)-1)+1:end); % vector of data values
+            dtadlm = strfind(dta,',');   % location of comma delimters associated with data values
+            dtadlm = [1 dtadlm length(dta)]; % add start and end points        
+            for i=1:length(dtadlm)-1
+                Sv(i) = str2num(dta(dtadlm(i): dtadlm(i+1)-1)); % put data values into a vector
+            end                                        
+            Sv_mean = [Sv_mean Sv];              
+            
+            for i=1:length(hdrnames)                   
+                eval(['vardata = {(strtrim(strrep((ln(vardlm(i): vardlm(i+1)-1)),'','',''''))) ;};' ]); % set header values equalt to variable values  
+                % now generate a vector of values for each header parameter,
+                % vector length is equal to the length of the data vector
+                % eval(['repmatdata = repmat(' hdrnames{i} ',1,length(datavec));']);                        
+                eval(['repmatdata = repmat( vardata ,1,length(Sv));']);                                               
+                eval([hdrnames{i} '= [' hdrnames{i} '  repmatdata ];']);                         
+            end            
+            Lyer = 1:1:length(Sv); % create the layer index
+            Layer = [Layer Lyer];
+            
+            int = (str2num(Range_stop{1}) - str2num(Range_start{1})) / str2num(Sample_count{1}); % assummes Range_stop, Range_start and Sample_count are the same throughout, which would be true as resample data comes out as matrix of values
+            Dpth_mean = str2num(Range_start{1})+int/2 :int: str2num(Range_stop{1})-int/2';        
+            Dpth_min = Dpth_mean - int/2';        
+            Dpth_max = Dpth_mean + int/2';        
+            Height_mean = [Height_mean (Dpth_max-Dpth_min)];
+            Depth_mean = [Depth_mean Dpth_mean]; % appeand        
+            Depth_min = [Depth_min Dpth_min]; % appeand        
+            Depth_max = [Depth_max Dpth_max]; % appeand        
+
+            % place holder for std, skew and kurtosis        
+            Skw = ones(length(Sv),1)'*NaN;
+            Skew = [Skew Skw]; %append
+            Kurt =  ones(length(Sv),1)'*NaN;
+            Kurtosis = [Kurtosis Kurt]; %append
+            Std = ones(length(Sv),1)'*NaN;
+            Stdev = [Stdev Std]; % append                       
+        end  
+        for i=1:length(Ping_index)
+            P_ind(i) = str2num(Ping_index{i}); % convert to integer         
+        end
+        
+        % a bit of massaging to make sure frmt is same as Gordon's
+        % implementation
+        Ping_index = int32(P_ind);
+        Layer = int32(Layer);
+        Ping_date =strrep(Ping_date','-','');                        
+        for i=1:length(Ping_time)
+            Millisec = Ping_milliseconds{i};
+            Millisec = Millisec(1:3);
+            Ping_time{i} =  strtrim(sprintf('%s.%s\n',Ping_time{i}, Millisec));
+            a(i) =  {num2str(Depth_min(i))};
+            b(i) =  {num2str(Depth_max(i))};            
+        end
+        Depth_min = a'; Depth_max = b';           
+        Sv_mean(Sv_mean<-998) = NaN; % kick out bad data values (e.g. -9.9e37)
+        cdata = [{Ping_index} {Layer} {Sv_mean} {Height_mean} {Depth_mean} {Depth_min}, ...
+                 {Depth_max} {Ping_date} {Ping_time'} {Latitude'} {Longitude'}, ...
+                 {Stdev'} {Skew'} {Kurtosis'}];
+             keyboard
+             
+function [rdata] = process_rdata(rawdatafile, rawnumsamples, cdata)
+    % takes raw data file and pulls out Sv values. then extracts number of good
+    % samples from rawnumsamples file. adds columns from cdata as needed to
+    % match original structure that Gordon used. 
+        
+        Sv_raw = extract_datavals(rawdatafile); % call to function
+        Sv_raw(Sv_raw<-998) = NaN; % kick out bad data values (e.g. -9.9e37);
+        
+        No_Raw_Samples = extract_datavals(rawnumsamples);
+        No_Raw_Samples(No_Raw_Samples<-998) = NaN; % kick out bad data values (e.g. -9.9e37);
+        
+        rdata = [cdata{1} cdata{2} {Sv_raw} {int32(No_Raw_Samples)'} cdata{12} cdata{13} cdata{14}];
+             
+function [tdata] = process_tdata(rejectdatafile, cdata)
+        % pull out number of samples left in clean data plus first two columns of cdata        
+        No_Clean_Samples = extract_datavals(rejectdatafile); % call to function
+        No_Clean_Samples(No_Clean_Samples<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        tdata = [cdata{1} cdata{2} {int32(No_Clean_Samples)'}];
+
+function [sdata] = process_sdata(SNRdatafile, cdata)
+        % pull out SNR data data plus first two columns of cdata        
+        SNR = extract_datavals(SNRdatafile); % call to function
+        SNR(SNR<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        sdata = [cdata{1} cdata{2} {SNR'}];
+        
+function [bdata] = process_bdata(BNdatafile, cdata)
+        % pull out BN data plus first two columns of cdata        
+        BN = extract_datavals(BNdatafile); % call to function
+        BN(BN<-998) = NaN; % kick out bad data values (e.g. -9.9e37); 
+        for i=1:length(BN)
+            b(i) = {BN(i)};
+        end
+        BN = b;        
+        bdata = [cdata{1} cdata{2} {BN'}];
+                                   
+function datavals = extract_datavals(datafilename)   
+        fid1 = fopen(datafilename,'r');        
+        hdr = trim(fgetl(fid1)); % Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present using trim funcion
+        hdr = [hdr ',']; % add an end point
+        hdrdlm = strfind(hdr,','); % location of header delimiters
+        hdrdlm = [0 hdrdlm]; % add starting point
+        % pull out the data values
+        datavals=[];
+        while ~feof(fid1) 
+            ln = trim(fgetl(fid1)); % read a line
+            dlm = strfind(ln,','); % locate comma dlimiters
+            dta = ln(dlm(length(hdrdlm)-1)+1:end); % vector of data values
+            dtadlm = strfind(dta,',');   % location of comma delimters associated with data values
+            dtadlm = [1 dtadlm length(dta)]; % add start and end points        
+            for i=1:length(dtadlm)-1
+                Dta(i) = str2num(dta(dtadlm(i): dtadlm(i+1)-1)); % put data values into a vector
+            end                                        
+            datavals = [datavals Dta];                                                       
+        end          
+        fclose(fid1);
+             
+function line = trim(line)
+% Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present
+%
+if  strncmp(line, ['' 239 187 191], 3)          % UTF-8 - used by EchoView 4 & 5
+    line = line(4:end);
+end
+line=strtrim(line);
+

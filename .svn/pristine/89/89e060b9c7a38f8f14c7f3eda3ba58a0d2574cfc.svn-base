@@ -1,0 +1,84 @@
+% what
+S, title                        = [mat ['A Bio-acoustic dataset from ' sample_data.transit_start_locality ' to ' sample_data.transit_end_locality ' in ' datestr(sample_data.time_coverage_start,'mmm yyyy')]]
+S, abstract                     = [mat ['This is a water column acoustic dataset from ' sample_data.transit_start_locality ' to ' sample_data.transit_end_locality ' in ' datestr(sample_data.time_coverage_start,'mmm yyyy') '. Collected under the IMOS BA-SOOP program by ' sample_data.ship_operator ' vessel ' sample_data.ship_name '.']]
+S, comment                      = [ddb Comment]
+S, platform_code                = [ddb Site Sites SiteName]
+S, metadata                     = 
+S, history                      =
+
+% where
+N, geospatial_lat_min           = [ddb Site Sites Latitude]
+N, geospatial_lat_max           = [ddb Site Sites Latitude]
+N, geospatial_lon_min           = [ddb Site Sites Longitude]
+N, geospatial_lon_max       	= [ddb Site Sites Longitude]
+
+% if left empty, these fields are automatically populated upon import 
+% when DEPTH variable exist (if not use depthPP pre-processing routine)
+N, geospatial_vertical_min      = 
+N, geospatial_vertical_max      = 
+
+% these fields are automatically populated upon import
+D, time_coverage_start          = 
+D, time_coverage_end            = 
+
+% who
+S, author_email                 = Ryan.Downie@csiro.au
+S, author                       = Ryan Downie
+S, principal_investigator       = Rudy Kloser
+S, principal_investigator_email = Rudy.Kloser@csiro.au
+
+% ICES WGFAST
+S, creator                      = Ryan Downie
+S, contributor                  = Ryan Downie
+
+% Ship metadata read from platform/<ship>_attributes.txt, type determined here
+S, ship_name                    = (ICES-Mandatory if appplicable)
+S, ship_callsign                = (ICES-Mandatory if appplicable)
+S, ship_operator                = (ICES-Mandatory if appplicable)
+S, ship_home_port               =
+S, ship_acknowledgement         = (ICES-Recommended)
+S, ship_comments                = (ICES-Optional)
+S, ship_imo                     =
+S, ship_type                    = Ship, fishing
+
+% Channel metadata read from platform/<ship>_<channel>.txt, type determined here
+N, frequency			= 
+S, instrument_channel_id        = 
+N, instrument_frequency         = 
+S, instrument_transducer_location = (ICES-Mandatory)
+S, instrument_transducer_manufacturer = (ICES-Mandatory)
+S, instrument_transducer_model  = (ICES-Mandatory)
+S, instrument_transducer_beam_type = (ICES-Mandatory)
+S, instrument_transducer_serial = (ICES-Recommended)
+N, instrument_transducer_depth  =
+N, instrument_transducer_psi    =
+N, instrument_transducer_beam_angle_major =
+N, instrument_transducer_beam_angle_minor =
+S, instrument_transceiver_manufacturer = (ICES-Mandatory)
+S, instrument_transceiver_model = (ICES-Mandatory)
+S, instrument_transceiver_serial = (ICES-Recommended)
+S, instrument_transceiver_firmware = (ICES-Recommended)
+S, instrument_comments          = (ICES-Optional)
+S, calibration_date             = (ICES-Mandatory)
+S, calibration_acquisition_method = (ICES-Mandatory)
+S, calibration_processing_method = (ICES-Mandatory)
+S, calibration_accuracy_estimate = (ICES-Mandatory)
+S, calibration_report           = (ICES-Mandatory)
+S, calibration_comments		= (ICES-Optional)
+D, calibration_file_date	=
+S, calibration_file_name	=
+S, data_acquisition_software_name =
+S, data_acquisition_software_version =
+S, data_acquisition_stored_data_format =
+S, data_acquisition_ping_duty_cycle =
+S, data_acquisition_comments    =
+S, data_processing_software_name = 
+S, data_processing_software_version =
+S, data_processing_sa_correction =
+S, data_processing_transceiver_gain =
+S, data_processing_transceiver_power =
+S, data_processing_transmit_pulse_length =
+
+%SOOP_BA
+S, transit_start_locality	=
+S, transit_end_locality	 	=

@@ -1,0 +1,105 @@
+function export_sv(EvApp, control, ev_filelist)
+% Export Sv from EchoView worksheets to .csv files
+%
+% Inputs:
+%   EvApp       a handle to a COM object of an EchoviewApplication.
+%   control     structure containing the following fields:
+%       echointegration_directory   name of directory to write .csv files
+%                                   in 'echointegration_output'
+%       Grid_height                 height of grid to generate
+%       Grid_distance               interval of grid to generate
+%       export_reference            flag export reference variable?
+%       export_reference_variable_name  'HAC Sv %s'
+%       export_final                flag export final variable?
+%       export_final_variable_name  'Final_%s_cleaned'
+%       export_reject               flag export reject variable?
+%       export_rejectdata_variable_name 'Reject_%s'      
+%       channel                     cell array of channels to export
+%   ev_filelist list of worksheets to export from    
+% 
+    [path, ~, ~] = fileparts(ev_filelist{1});
+    [path, ~, ~] = fileparts(path);
+    
+    Echointegration_Output_dir = fullfile(path, control.echointegration_directory);
+    if ~isdir(Echointegration_Output_dir)
+        mkdir(Echointegration_Output_dir)
+    end
+
+    for i=1:length(ev_filelist)
+        if control.verbosity > 1
+            fprintf('Exporting %d of %d\n', i, length(ev_filelist));
+        end
+        [~, name, ~] = fileparts(ev_filelist{i});
+        try
+            EvFile = EvApp.OpenFile(ev_filelist{i});
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "return" and press Enter to continue\n');
+            keyboard           
+        end
+        
+        if ~iscell(control.channel)
+            control.channel = {control.channel};
+        end
+        
+        for channel = control.channel
+            if control.export_reference
+                try
+                    reference_variable = sprintf(control.export_reference_variable_name, channel{1});
+                    export_var(EvFile, reference_variable, ...
+                        Echointegration_Output_dir, name, ...
+                        control.Grid_height, control.Grid_distance, control.verbosity);
+                catch excpt     %#ok<NASGU>         % handle legacy variable name
+                    export_var(EvFile, 'HAC Sv 38 kHz', ...
+                        Echointegration_Output_dir, name, ...
+                        control.Grid_height, control.Grid_distance, control.verbosity);
+                end
+            end
+            if control.export_final
+                final_variable = sprintf(control.export_final_variable_name, channel{1});
+                export_var(EvFile, final_variable, ...
+                    Echointegration_Output_dir, name, ...
+                    control.Grid_height, control.Grid_distance, control.verbosity);
+            end
+            if control.export_reject
+                rejectdata_variable = sprintf(control.export_rejectdata_variable_name, channel{1});
+                export_var(EvFile, rejectdata_variable, ...
+                    Echointegration_Output_dir, name, ...
+                    control.Grid_height, control.Grid_distance, control.verbosity);
+            end
+        end
+        
+        try
+            EvFile.Close;
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "return" and press Enter to continue\n');
+        end
+    end
+end
+
+function export_var(EvFile, vname, dir, fname, height, distance, verbosity)
+     Var = EvFile.Variables.FindByName(vname);
+     if isempty(Var)
+         fprintf('Couldnt find variable %s \n', vname)
+         keyboard
+     end
+     VarAc = Var.AsVariableAcoustic;
+     VarAc.Properties.Grid.SetDepthRangeGrid(1, height);
+     VarAc.Properties.Grid.SetTimeDistanceGrid(5, distance);
+     export_file_name = fullfile(dir, [fname '_' vname '.csv']);
+     
+     if verbosity > 1
+        fprintf('exporting %s to \n%s\n', vname, export_file_name);
+     end
+     if VarAc.ExportIntegrationByCellsAll(export_file_name);
+         if verbosity > 1
+            fprintf('Done %s_%s.csv\n',fname,vname);
+         end
+     else
+         fprintf('Echointegration failed\n');
+     end
+
+end

@@ -1,0 +1,446 @@
+function [cdata, rdata, tdata, bdata, sdata] = convert_resample_to_stdcsv_linear(csvfilelist)
+% function to convert resampled outputs to standard csv format ready for
+% use by process_BASOOP
+%
+% Tim Ryan 16/05/2017
+%
+% precondition. csvfile list is supplied with files in the correct order as
+% per list below       
+
+%cd 'Q:\Processed_data\Ramform_Sovereign\All_with_GPS\D20141117-T163855-D20150416-T032328\Ramform_12_38\echointegration_output'
+%load converte_resample_to_stdcsv.mat
+
+rawdatafile = csvfilelist{3};
+rawnumsamples = csvfilelist{7};
+cleandatafile = csvfilelist{2};
+rejectdatafile = csvfilelist{4};
+SNRdatafile = csvfilelist{5};
+BNdatafile = csvfilelist{6};
+Intervaldatafile = csvfilelist{8};
+
+fprintf('Converting resample data into standard csv format\n');
+[cdata] = process_cdata(cleandatafile,Intervaldatafile);   
+fprintf('done processing %s\n',cleandatafile);
+[rdata] = process_rdata(rawdatafile,rawnumsamples, cdata);
+fprintf('done processing %s\n',rawdatafile);
+[tdata] = process_tdata(rejectdatafile ,cdata);    
+fprintf('done processing %s\n',rejectdatafile);
+[sdata] = process_sdata(SNRdatafile, cdata);
+fprintf('done processing %s\n',SNRdatafile);
+[bdata] = process_bdata(BNdatafile, cdata);
+fprintf('done processing %s\n',BNdatafile);
+
+
+function [cdata] = process_cdata(cleandatafile,interval_datafile)
+    % takes clean data file and extracts out relevant columns. reads
+    % interval information from interval_datafile. 
+    % cdata fields are as follows
+    %  cdata = [{Interval'} {Layer'} {Sv_mean'} {Height_mean'} {Depth_mean'} {Depth_min}, ...
+    %           {Depth_max} {Ping_date} {Ping_time} {Latitude'} {Longitude'}, ...
+    %           {Stdev'} {Skew'} {Kurtosis'}]       
+    
+        tstart = tic;
+        fid1 = fopen(cleandatafile,'r');    
+        hdr = trim(fgetl(fid1)); % Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present using trim funcion
+        hdr = [hdr ',']; % add an end point
+        hdrdlm = strfind(hdr,','); % location of header delimiters
+        hdrdlm = [0 hdrdlm]; % add starting point
+        hdrnames = {zeros(length(hdrdlm)-1,1, 'int8')};
+        for i=1:length(hdrdlm)-1
+            hdrnames{i} = strtrim(hdr(hdrdlm(i)+1:hdrdlm(i+1)-1));
+        end        
+        xvarnames = [{'Sv_mean'},{'Layer'},{'Height_mean'},{'Depth_mean'},{'Depth_min'},{'Depth_max'},{'Layer'},{'Skew'},{'Kurtosis'},{'Stdev'}];
+        for i=1:length(xvarnames)
+            eval([xvarnames{i} '= [];'])
+        end
+    
+    % establish how many data values there are per column
+        ln = trim(fgetl(fid1)); % Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present using trim funcion
+        dlm = strfind(ln,','); % locate comma dlimiters
+        dta = ln(dlm(length(hdrdlm)-1)+1:end); % vector of data values   
+        Sv = regexp(dta,',','split'); % pull out the array of Sv values                
+        Sv = cellfun(@str2double,Sv);   
+        no_data_values = length(Sv);
+        frewind(fid1); fgetl(fid1); % go back to start and jump one header
+        
+    % run through file to count number of lines to allow preallocation
+        no_lines = 1;
+        while ~feof(fid1)
+            fgetl(fid1);
+            no_lines = no_lines+1;
+        end
+        no_lines = no_lines-1;
+        frewind(fid1); fgetl(fid1); % kick out header
+       
+    % preallocate variables   
+        prealloc = zeros(1, no_lines*no_data_values); % we need the number of lines multiplied by the number of data points per line
+        for i=1:length(hdrnames)        
+            %eval([hdrnames{i} ' = [];' ]); % not sure if this is needed. 
+            eval([hdrnames{i} ' = prealloc;']); 
+        end   
+        Ping_time = cell(length(prealloc),1); Ping_date = cell(length(prealloc),1);
+        Latitude = cell(length(prealloc),1); Longitude = cell(length(prealloc),1);
+        
+        derived_vars = [{'Depth_max'}, {'Depth_mean'}, {'Depth_min'}, {'Height_mean'}, {'Skew'}, {'Kurtosis'}, {'Sv_mean'} {'Layer'} {'Stdev'},{'Interval'}];
+        for i=1:length(derived_vars)
+            eval([derived_vars{i} ' = prealloc;' ]); % not sure if this is needed. 
+        end
+        
+        dist_old=[];j=1; Intdata = txt2struct(interval_datafile); % this for splicing in interval data
+        x= 1;  
+        idx_counter = 1;                                    
+        for m=1:no_lines                                             
+            ln = trim(fgetl(fid1)); % read a line            
+            C = strtrim(regexp(ln,',','split')); % put into a cell array
+            dist = C{2}; % pull out the GPS distance
+            dlm = strfind(ln,','); % locate comma dlimiters
+            vars = ln(1:dlm(length(hdrdlm))-1);   % pull out the variable data associated with headres
+            vardlm = strfind(vars,',');   % locate delimiters associated with variable data
+            vardlm = [1 vardlm];  % add a start point to vector of delimiter locations                                                   
+            dta = ln(dlm(length(hdrdlm)-1)+1:end); % vector of data values                    
+            if ~isequal(dist_old, dist) % kick out replicate lines (can happen on the export Sv values for some reason
+                % compile the variables. both as per the header names and
+                % derived variables. 
+                Sv = regexp(dta,',','split'); % pull out the array of Sv values                   
+                Sv = cellfun(@str2double,Sv);                              
+                Int = repmat(Intdata.Interval(j), 1, length(Sv)); % generate index values. for each Sv value have a corresponding incrementing index value                  
+                j=j+1;                
+                idx = ((x-1) *length(Sv)+1): 1: x* length(Sv);     
+                                                                 
+                % now grab a value associated with each of the headernames
+                % for the echointegration interval and replicate (i.e.,
+                % e.g. 1 latitude value for interval x, replicated by the
+                % number of vertical cells. 
+                for i=1:length(hdrnames)                   
+                    eval('vardata = {(strtrim(strrep((ln(vardlm(i): vardlm(i+1)-1)),'','',''''))) ;};'); % set header values equal to variable values  
+                    % now generate a vector of values for each header parameter,
+                    % vector length is equal to the length of the data vector 
+                    chk = [4, 5, 7, 8]; % these remain as cells;
+                    if any(i == chk)                                        
+                    %if ~ isempty(regexp(vardata{1}, '-\d*[0-9]-','once')) || ~ isempty(strfind(vardata{1}, ':'))
+                        % do nothing we have time and date fields                        
+                    else                                                         
+                        vardata = str2double(cell2mat(vardata));                    
+                    end                   
+                    eval('repmatdata = repmat( vardata ,1,length(Sv));');                  
+                    eval([hdrnames{i} '(idx) = repmatdata;']);                             
+                end                                      
+                Sv_mean(idx) = Sv;                
+                Lyer = 1:1:length(Sv); % create the layer index
+                Layer(idx) = Lyer;
+                % derive values for Depth mean, min, max and height mean.                
+                Sample_count = length(Sv);                
+                int = (Range_stop(1)- Range_start(1)) / Sample_count; % assummes Range_stop, Range_start and Sample_count are the same throughout, which would be true as resample data comes out as matrix of values
+                Dpth_mean = Range_start(1)+int/2 :int: Range_stop(1)-int/2';        
+                Dpth_min = Dpth_mean - int/2';        
+                Dpth_max = Dpth_mean + int/2';        
+                Height_mean(idx)  = (Dpth_max-Dpth_min);
+                Depth_mean(idx)   =  Dpth_mean; 
+                Depth_min(idx) = Dpth_min; 
+                Depth_max(idx) = Dpth_max;                                                     
+                Interval(idx) = Int;                         
+            end
+            dist_old = dist;
+            x=x+1;                          
+        end             
+     
+        % a bit of massaging to make sure frmt is same as Gordon's
+        % implementation                
+        Layer = int32(Layer);
+        Ping_date = cellfun(@(xx)  strrep(xx,'-',''), Ping_date, 'Un',0);        
+        dot = char(ones(length(Ping_index),1)*46);        
+        
+        Millisec = num2str(floor(Ping_milliseconds)','%03d');
+        Ping_time = cellstr([cell2mat(Ping_time) dot Millisec]);
+
+        tmp = textscan(sprintf('%d\n', Depth_min),'%s');
+        Depth_min = tmp{1};
+        tmp = textscan(sprintf('%d\n', Depth_max),'%s');
+        Depth_max = tmp{1};        
+                
+        Sv_mean(Sv_mean<-998) = NaN; % kick out bad data values (e.g. -9.9e37) 
+        cdata = [{Interval'} {Layer'} {Sv_mean'} {Height_mean'} {Depth_mean'} {Depth_min}, ...
+                 {Depth_max} {Ping_date} {Ping_time} {Latitude'} {Longitude'}, ...
+                 {Stdev'} {Skew'} {Kurtosis'}];   
+        fprintf('Time to complete cdata %.2f\n',toc(tstart));        
+              
+function [rdata] = process_rdata(rawdatafile, rawnumsamples, cdata)
+    % takes raw data file and pulls out Sv values. then extracts number of good
+    % samples from rawnumsamples file. adds columns from cdata as needed to
+    % match original structure that Gordon used. 
+        tstart = tic;
+        Sv_raw = extract_datavals(rawdatafile, cdata, 'RData'); % call to function
+        Sv_raw(Sv_raw<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        No_Raw_Samples = extract_datavals(rawnumsamples,cdata,'Rdata');       
+        No_Raw_Samples(No_Raw_Samples<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        rdata = [cdata{1} cdata{2} {Sv_raw'} {int32(No_Raw_Samples)'} cdata{12} cdata{13} cdata{14}];           
+        fprintf('Time to complete rdata %.2f\n',toc(tstart))                  
+function [tdata] = process_tdata(rejectdatafile, cdata)
+        tstart = tic;
+        % pull out number of samples left in clean data plus first two columns of cdata        
+        No_Clean_Samples = extract_datavals(rejectdatafile,cdata, 'TData'); % call to function
+        No_Clean_Samples(No_Clean_Samples<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        tdata = [cdata{1} cdata{2} {int32(No_Clean_Samples)'}];
+        fprintf('Time to complete tdata %.2f\n',toc(tstart))                  
+
+function [sdata] = process_sdata(SNRdatafile, cdata)
+        tstart = tic;  
+        % pull out SNR data data plus first two columns of cdata        
+        SNR = extract_datavals(SNRdatafile,cdata, 'SData'); % call to function
+        SNR(SNR<-998) = NaN; % kick out bad data values (e.g. -9.9e37);        
+        sdata = [cdata{1} cdata{2} {SNR'}];
+        fprintf('Time to complete sdata %.2f\n',toc(tstart))                  
+        
+function [bdata] = process_bdata(BNdatafile, cdata)
+        tstart = tic;
+        % pull out BN data plus first two columns of cdata        
+        BN = extract_datavals(BNdatafile,cdata,'BData'); % call to function          
+        %BN(BN<-998) = NaN; % kick out bad data values (e.g. -9.9e37); 
+        %BN = cellstr(num2str(BN));        
+        bdata = [int32(cdata{1}) cdata{2} {BN}];         
+        fprintf('Time to complete bdata %.2f\n',toc(tstart))                  
+                                   
+function datavals = extract_datavals(datafilename,cdata,datatype)                      
+        % preallocate variables          
+            prealloc = zeros(1, length(cdata{1})); 
+        %datavals = prealloc;
+        if isequal(datatype, 'BData')
+            datavals = cell(length(prealloc),1);
+        else
+            datavals = prealloc;
+        end
+        % open data file 
+            fid1 = fopen(datafilename,'r');        
+            hdr = trim(fgetl(fid1)); % Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present using trim funcion
+            hdr = [hdr ',']; % add an end point
+            hdrdlm = strfind(hdr,','); % location of header delimiters
+            hdrdlm = [0 hdrdlm]; % add starting point
+            x=1;
+            % pull out the data values
+                dist_old=[];
+                while ~feof(fid1) 
+                    ln = trim(fgetl(fid1)); % read a line
+                    C = strtrim(regexp(ln,',','split')); % put into a cell array
+                    dist = C{2}; % pull out the GPS distance            
+                    dlm = strfind(ln,','); % locate comma dlimiters
+                    dta = ln(dlm(length(hdrdlm)-1)+1:end); % vector of data values                    
+                    if ~isequal(dist_old, dist) % kick out replicate lines (can happen on the export Sv values for some reason
+                        Dta = regexp(dta,',','split'); % put data values into a vector                        
+                        idx = ((x-1) *length(Dta)+1): 1: x* length(Dta); % generate an index value to accompany each data values. allows population of the preallocated array.                                                                
+                        dvals = cellfun(@str2double, Dta);                                       
+                        if isequal(datatype, 'BData'); % dealing with background noise vector                            
+                           datavals(idx) = {num2str(max(dvals))};                                                      
+                        else                            
+                           datavals(idx) = dvals;
+                        end
+                    end
+                    dist_old = dist;
+                    x=x+1;
+                end                       
+                %datavals = cellfun(@str2double, datavals);                 
+                fclose(fid1);        
+             
+function line = trim(line)
+% Remove UTF-8 Byte Order Mark (ef bb bf) from header line if present
+%
+if  strncmp(line, ['' 239 187 191], 3)          % UTF-8 - used by EchoView 4 & 5
+    line = line(4:end);
+end
+line=strtrim(line);
+
+
+
+function [output_structure] = txt2struct(textfile, varargin)
+% txt2struct: funciton to convert a delimited textfile into a stucture.
+%
+% Preconditions:
+% First row of the file contains field names separated by delimiters.
+% Datatype of each column is constant and defined by the second row.
+%
+% This function may not be robust when confronted with incorrectly
+% formatted data.
+%
+% Inputs:
+%       textfile    name of file to read, if not provided user is asked
+%       'delimiter' delimiter   field delimiter, if not specified the first
+%                               of comma, tab or space which appears in the
+%                               header line is used.
+%       'skip' skip             Number of lines at start of file to ignore
+%                               before the header line [0].
+%       'headerlines' line      Number of header lines of which the first
+%                               determines field names and the rest ignored
+%                               [1]
+%       'blocksize' lines       Number of lines to read at a time using
+%                               textscan, may prevent out of memory errors.
+%                               [5,000,000]
+%       'cells'                 Leave strings in cell arrays and don't try
+%                               to convert to char arrays. 
+%       'format' format         format is a string of textscan format 
+%                               characters (s, q, c, f, d and u)
+%                               specifying the format of each field.
+%                               Fields whose format is not specified
+%                               ('%') are defined by the first data row.
+%                               
+%
+% Outputs:
+%       output_structure    A struct with one field per column of the input
+%                           file. Field names are the valid characters from
+%                           the header line for that field.
+%                           Fields will all be of the same length and will
+%                           be either double, cells of strings of irregular
+%                           length or char arrays.
+%
+% Author: 
+%       Tim Ryan CSIRO 18 Dec 2007
+%   Revised:
+%       Gordon Keith CSIRO 12 Sep 2013
+
+if nargin < 1 || isempty(textfile)
+    [file, path] = uigetfile({'*.csv'; '*.txt'; '*.*'}, 'Select file to read');
+    if isequal(file, 0)
+        return
+    end
+    textfile = fullfile(path,file);
+end
+if exist(textfile, 'file') ~= 2
+    [file, path] = uigetfile(textfile, 'Select file to read');
+    textfile = fullfile(path,file);
+end
+    
+
+output_structure = struct;
+block_size = 5000000; % rows
+delimiter = '';
+headerlines = 1;
+skip = 0;
+decell = 1;
+format ='';
+
+arg = 1;
+while arg < nargin
+    if strcmpi(varargin{arg}, 'delimiter')
+        arg = arg + 1;
+        delimiter = varargin{arg};
+    elseif strcmpi(varargin{arg}, 'headerlines')
+        arg = arg + 1;
+        headerlines = varargin{arg};
+    elseif strcmpi(varargin{arg}, 'skip')
+        arg = arg + 1;
+        skip = varargin{arg};
+    elseif strcmpi(varargin{arg}, 'blocksize')
+        arg = arg + 1;
+        block_size = varargin{arg};
+    elseif strcmpi(varargin{arg}, 'format')
+        arg = arg + 1;
+        format = varargin{arg};
+    elseif strncmpi(varargin{arg}, 'cell',4)
+        decell = 0;
+    end  
+    arg = arg + 1;
+end
+
+fid = fopen(textfile);
+
+% get header
+for i = 1:skip
+    fgetl(fid);
+end
+header = fgetl(fid);
+
+% try to determine delimiter if not provided
+if isempty(delimiter)
+    if ~isempty(find(header == ',',1))      % comma
+        delimiter = ',';
+    elseif ~isempty(find(header == 9,1))    % tab
+        delimiter = 9;
+    else                                    % space
+        delimiter = ' ';
+    end
+end
+
+fields = regexp(header, delimiter, 'split');
+fn = length(fields);
+
+% skip unwanted headers
+for i=2:headerlines
+    fgetl(fid);
+end
+
+% determine column class from first data row
+first_row = fgetl(fid);
+data = regexp(first_row, delimiter, 'split');
+
+if length(data) ~= fn
+    error('Data doesn''t match number of fields in header');
+end
+
+class_string = char(ones(1,2*fn) * '%');
+for i=1:length(format)
+    class_string(2*i)=format(i);    % use user supplied formats
+end
+
+for i = 1:fn
+    % get field name
+    valid = regexp(fields{i},'[A-Za-z0-9_]');   % Only valid field name characters
+    fields{i} = genvarname(fields{i}(valid), fields(1:i-1));
+    
+    if class_string(2*i) == '%'
+        % determine data type (string or numeric)
+        if isnan(str2double(data{i})) && ~strcmpi(data{i},'NaN')
+            class_string(2*i) = 'q';
+            output_structure.(fields{i}) = strtrim(data(i));
+        else
+            class_string(2*i) = 'f';
+            output_structure.(fields{i}) = str2double(data{i});
+        end
+    else    % use provided format
+        if class_string(2*i) == 'q' || class_string(2*i) == 's'
+            output_structure.(fields{i}) = strtrim(data(i));
+        else
+            output_structure.(fields{i}) = sscanf(data{i},class_string(2*i-1:2*i));
+        end
+    end
+end
+
+class_string = [ class_string '%*[^\n]' ];   % skip rest of line
+
+% read data
+skipped = 0;
+while ~feof(fid)
+    segarray = textscan(fid, class_string, block_size, 'delimiter', delimiter);
+    if isempty(segarray{end})         % Couldn't parse this line using class_string so skip it
+        skipped = skipped +1;
+        fgetl(fid);
+    else
+        for i = 1:fn
+            output_structure.(fields{i}) = [ output_structure.(fields{i}); segarray{i}];
+        end
+    end
+    clear segarray
+end
+
+if skipped
+    warning('TXT2STRUCT:UnreadData', ...
+        'Inconsistent file format, Not all data read from file\n%d lines skipped', skipped);
+end
+
+fclose(fid);
+
+% convert regular cell arrays to char arrays
+for i = 1:fn
+    if decell && iscell(output_structure.(fields{i}))
+        try 
+            mat = cell2mat(output_structure.(fields{i}));
+            if size(mat,1) == length(fields)
+                output_structure.(fields{i}) = mat;
+            end
+        catch e                                                             %#ok<NASGU>
+            % MATLAB:catenate:dimensionMismatch expected when strings of
+            % varying size - leave them as cells
+        end
+    end
+end
+            
+
+
+    

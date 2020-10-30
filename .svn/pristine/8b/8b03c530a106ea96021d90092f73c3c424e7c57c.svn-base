@@ -1,0 +1,16 @@
+S, platform_code        = WTEE
+S, ship_name		= Oscar Elton Sette
+S, ship_type		= Ship, research
+S, ship_code		= SE
+S, ship_callsign	= WTEE
+S, ship_alt_callsign	= 
+S, ship_imo             = 8835097
+S, ship_operator	= NOAA
+S, ship_home_port       = HONOLULU HI
+N, ship_length          = 60
+N, ship_breadth         = 16
+N, ship_tonnage         = 1578
+N, ship_engine_power    = 
+S, ship_noise_design    = 
+S, ship_acknowledgement = 
+S, ship_comments        = 

@@ -1,0 +1,62 @@
+function export_HAC(EvApp, directory, ev_filelist, VarName)
+% Export the requested variable from the specified worksheets to HAC files.
+%
+% Inputs:
+%   EvApp       a handle to a COM object of an EchoviewApplication.
+%   directory   name of directory to write HAC files 'HAC_outputs'
+%   ev_filelist list of worksheets to export from    
+%   VarName     name of variable to export 'HAC1_exp' - 'HAC5_exp'
+%
+%  
+
+    % -- Setup HAC output directory
+    [path, ~, ~] = fileparts(ev_filelist{1});
+    [path, ~, ~] = fileparts(path);
+    
+    HAC_Output_dir = fullfile(path, directory);
+    if ~isdir(HAC_Output_dir)
+        mkdir(HAC_Output_dir)
+    end
+    
+    % -- export each file
+    for i=1:length(ev_filelist)
+        EvFile = EvApp.OpenFile(ev_filelist{i});
+        
+        try
+            Var = EvFile.Variables.FindByName(VarName);
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "dbcont" and press Enter to continue\n');
+            keyboard           
+        end
+        try
+            VarAc = Var.AsVariableAcoustic;
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "dbcont" and press Enter to continue\n');
+            keyboard           
+        end
+        
+        % -- setup the export file name
+        [~, name, ~] = fileparts(ev_filelist{i});
+        export_file_name = fullfile(HAC_Output_dir, [ name ' ' VarName '.hac']);
+        fprintf('Exporting %s \nfrom variable %s \nfrom ev file %s \n', export_file_name, VarAc.Name, EvFile.FileName)
+        try
+            VarAc.ExportHAC(export_file_name,-1,-1, 1); % compressed HAC format
+            fprintf('Completed %d of %d\n',i, length(ev_filelist));
+        catch exception
+            fprintf('Stopped at %s line %d because of:\n%s\n', ...
+                exception.stack(1).file, exception.stack(1).line, exception.message);
+            fprintf('type "dbcont" and press Enter to continue\n');
+            keyboard
+        end
+        pause(1);
+        EvFile.Save;
+        EvFile.Close;
+    end
+    
+end
+    
+    

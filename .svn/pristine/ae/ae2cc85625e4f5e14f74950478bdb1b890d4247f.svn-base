@@ -1,0 +1,15 @@
+S, vessel_name = <<<
+S, vessel_type = <<<
+S, vessel_callsign = <<<
+S, vessel_code = <<<
+S, vessel_alt_callsign = <<<
+S, vessel_imo = <<<
+S, vessel_IMO = <<<
+S, vessel_operator = <<<
+S, vessel_home_port = <<<
+S, vessel_length = <<<
+S, vessel_breadth = <<<
+S, vessel_tonnage = <<<
+S, vessel_acknowledgement = <<<
+S, data_processing_transciever_power  = <<<
+

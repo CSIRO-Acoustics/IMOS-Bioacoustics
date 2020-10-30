@@ -1,0 +1,93 @@
+ 	VALIDATE   user notes
+	~~~~~~~~~~~~~~~~~~~~~
+
+Code is in m-files:
+val2.m
+val4.m
+val5.m
+validate.m
+val_mld.m
+val_util.m
+
+Only invoke 'validate'. 
+
+Arguments:
+ - 'validate' takes up to 4 arguments - use 'help validate' for details.
+
+
+Manual modifying plots:
+ - since the GUI is standalone you can manipulate the plots yourself using
+direct commands.
+
+Closing submenus:
+ - use the 'close' button, or things will get in a tangle.
+
+Exiting:
+ - unless you want to preserve the figures for some reason, DO accept 
+the option of clearing figures when you exit (or you will end up with 
+lots of figure windows when another batch are spawned with the next
+use of 'validate'.).
+
+
+DETAILS
+~~~~~~~
+Entering numbers:  there is no need to enclose numbers in square brackets.
+ie  you can enter [1995 12 31]    OR    1995 12 31
+
+Time range:
+ - If you have set a time range but then want to revert to full model time
+span, erase the date fields - the model dates will be written back to 
+those fields. Cast data will only be actually used if within 'tdmax' days
+of a model timestep (see Arguments)
+
+Difference map: 
+ - this is a map with the size and shape of markers indicating
+the difference between observations and corresponding model values. It
+is calculated at one depth level, which can be specified as a depth or a 
+level number. When a depth or level is altered, hit Enter in that field and
+the corresponding level or depth will be updated. The plot is generated
+each time Enter is typed in either field.
+
+Scatter plot: 
+ -  is a plot of observed value vs corresponding model value.
+A range of depth levels can be specified, in which case the colour of 
+symbols indicates the depth level. Note that this range is specified in 
+ascending depth value, which is descending level number. Behaviour of depth 
+selection is as for "Difference map". 
+
+Stats profile:
+ - Note that the legend can be dragged to a different place on the figure.
+
+
+Plot Controls:
+~~~~~~~~~~~~~~
+These apply to the plot type selected at left.
+
+Not all plots can be selected; only those I think you might need to 
+play with.
+
+
+Mixed Layer Depth:
+~~~~~~~~~~~~~~~~~
+MLD calculation and plotting is quite different to the treatment of
+other properties, because both T and S fields are read in and interpolated
+to cast positions, but the comparison data is the MLD estimates. Since
+there is only 1 estimate per cast, none of the profile plots are relevant.
+Also, obviously no level can be specified for the "Difference map" or 
+"Scatter" figures.
+
+The MLD plots come up automatically as soon as you have MLD calculated
+for BOTH datasets. 
+
+Algorithm details:  for now, see function mixld in val_util.m
+
+
+---------------------------------------------------------------------------
+      PROGRAMMER DOCUMENTATION
+      ~~~~~~~~~~~~~~~~~~~~~~~~
+Basically, there isn't any.
+
+This code is maintained and has RCS backup in /home/dunn/scott/validation/.
+
+						Jeff Dunn CMR  March 2003
+---------------------------------------------------------------------------

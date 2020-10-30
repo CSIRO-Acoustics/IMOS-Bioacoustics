@@ -1,0 +1,2371 @@
+head	1.7;
+access;
+symbols;
+locks
+	dun216:1.7; strict;
+comment	@// @;
+
+
+1.7
+date	2005.11.10.05.44.03;	author dun216;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2005.07.11.03.58.26;	author dun216;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2003.06.04.02.36.29;	author dun216;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2002.03.13.10.09.08;	author dun216;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2002.03.13.09.38.47;	author dun216;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2001.03.07.23.59.10;	author dun216;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2000.02.17.05.10.05;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.7
+log
+@Small updates, esp to allow for scr=3 option.
+@
+text
+@% GET_ALL_OBS  Get ocean cast data on Observed levels
+%
+%   NOTE: This superceded and is incompatible with previous version, which 
+%        is still available but now called get_all_obs_v1.
+%
+%   NOTE:  No access yet to datasets 8  11  15  16  17  18  20  25-29  34
+%
+% INPUT:  
+%  src    [w e s n] limits of region of required data
+%      OR defining polygon [x1 y1; x2 y2; x3 y3; ... ] 
+%  hvar   vector of one or more cast header info codes:
+%         1)stnno   2)time   3)castflag  4)bot_depth   5)country   6)cruise
+%         9) filetype
+%  var    vector of property codes:  
+%         1)t   2)s   3)02   4)Si   5)PO4   6)NO3   7)gamma   14)no4  15)nh3
+%  dset   dataset codes - for info type:  dset_name
+%         WARNING: some dsets, especially #14, can use enormous memory. #14
+%         may be better accessed directly using get_willis.m
+%  dlim   [Optional] upper and lower depth limits
+%  dmid   [Optional] target depth (return nearest nval values to this depth)
+%  nval   [Optional] max number of values to return (in dlim range, closest
+%          dmid if dmid given, otherwise limited trim off at bottom of
+%          profile. [default 1 if dmid, and 1000 otherwise] 
+%  scr    0 - disable pre-flagged bad-cast and bad-individual-data screening
+%         1 - apply castflag screening
+%         2 - [default] apply (originator and CSIRO) per-value screening as well
+%         3 - screen as for 2, but leave all rejects in casts [used when doing
+%             further screening, so that value indices match original casts.]
+%  trng   [mint maxt] optional time limits (days since 1900). default [0 inf]
+%  dups   0= don't remove any dups
+%         1= only remove dups if "primary" datasets are also requested [default]
+%         2= remove all "secondary" casts which have dups in "primary" datasets
+%            (whether or not the primary datasets are being extracted now.)
+%         dups{n} = [m o ...] =remove casts in n duped in datasets m,o,...
+%  strp   0= return all casts, even if no data
+%         1= return only casts with some data in some profiles [default]
+%         2= return only casts with some data in all requested properties
+% OUTPUT:
+%  lat,lon  [ncast 1]
+%  zdep     [ncast ndep]
+%  h1 etc   [ncast 1] header vars in order requested
+%  v1 etc   [ncast ndep] data vars in order requested
+%            {where ndep may be less than number of depths requested, 
+%             if no good data that deep for that particular variable.}
+%
+% Q: Duplicates where more than one variable requested - eg request T & S,
+%    one station has T only and the same station in another dataset has S only?   
+% A: We have a different list of duplicates for each property, so in the
+%    above case both stations would be returned (unless strp=2).
+%
+% USAGE: [lat,lon,zdep,v1,v2,..] = 
+%       get_all_obs(src,hvar,vars,dset,dlim,dmid,nval,scr,trng,dups,strp);
+
+% $Id: get_all_obs.m,v 1.6 2005/07/11 03:58:26 dun216 Exp dun216 $
+% Author: Jeff Dunn  CSIRO Marine Research Mar 2005
+% Devolved from get_all_csl3.m & get_all_obs.m
+
+function [lat,lon,zdep,varargout] = get_all_obs( ...
+    src,hvar,vars,dsets,dlim,dmid,nval,scr,trng,dups,strp)
+
+if nargin<4
+   error('  GET_ALL_OBS  requires 4 or more input arguments');
+end
+
+if nargin<5 
+   dlim = [];
+elseif length(dlim)==1
+   dlim = [0 dlim];
+end
+
+if nargin<6
+   dmid = [];
+end
+if nargin<7 | isempty(nval)
+   if isempty(dmid)   
+      nval = 1000;
+   else
+      nval = 1;      
+   end
+end
+
+if nargin<8 | isempty(scr)
+   scr = 2;
+end
+if scr==3
+   if (~isempty(dlim) & dlim(1)>0)
+      disp('GET_ALL_OBS- WARN: dlim(1)~=0 generally incompatible with scr=3');
+   elseif  ~isempty(dmid) 
+      disp('GET_ALL_OBS- WARN: use of dmid generally incompatible with scr=3');
+   end
+end
+
+if nargin<9
+   trng = [];
+end   
+
+if nargin<10 | isempty(dups)
+   dups = 1;
+end
+if iscell(dups)
+   % User has specified the dataset preference scheme for dup removal
+   dupset = dups;
+   if length(dupset)<max(dsets)
+      dupset{max(dsets)} = [];
+   end
+   clear dups
+   dups = 3;
+elseif dups==1
+   % Dup removal uses the standard preference scheme
+   dupset = dsets;
+elseif dups==2
+   % Remove casts which duped in any other datasets, even if those datasets
+   % are not being extracted	 
+   dupset = [1:100];
+end
+
+if nargin<11 | isempty(strp)
+   strp = 1;
+end   
+
+if strp==0 & dups>0
+   global Get_All_Obs_told
+   if ~Get_All_Obs_told
+      disp('You have set dups>0 & strp=0, so duplicate casts will have profiles')
+      disp('emptied of data, but they will still be returned');
+      Get_All_Obs_told = 1;
+   end
+end
+
+ii = find(dsets<=6);
+if ~isempty(ii)
+   disp('This function does not access WOD98');
+   dsets(ii) = [];
+   if isempty(dsets)
+      return
+   end
+end
+   
+nhv = length(hvar);
+ndv = length(vars);
+
+lat = []; lon = []; zdep = []; cpn = [];
+
+varargout{nhv+ndv} = [];
+
+dupth = '/home/oez5/eez_data/duplicates/';
+
+for dset = dsets(:)'
+   if any(dset==[21:28])
+      [lo,la,stnno,zd,iv,hv,vv] = get_wod01(dset,src,trng,dlim,nval,dmid,hvar,vars,scr);
+   else
+      [lo,la,stnno,zd,iv,hv,vv] = get_dset(dset,src,trng,dlim,nval,dmid,hvar,vars,scr);      
+   end
+
+   jj = 1:length(lo);
+   
+   if dups>0 & ~isempty(jj)
+      % If dup checking, nan-fill all profiles in duplicate casts.
+      % Messy if more than one var, because datasets have different
+      % combinations of vars, so vars for the same cast can have
+      % different dup status with respect to another dataset.
+      % For each var we set dup profiles to nan. We then get rid of whole 
+      % stations with only all-nan profiles.
+      for jv = iv
+	 if dups<3
+	    dulst = dset_dup_pref(dupset,vars(jv),dset);
+	 else
+	    dulst = dupset{dset};
+	 end
+	 for odset = dulst
+	    fnm = sprintf('%s%d_%d_%d_dups',dupth,dset,odset,vars(jv));
+	    if exist([fnm '.mat'],'file')
+	       load(fnm);
+	       ii = inboth(stnno(jj),dupstn);
+	       if ~isempty(ii)
+		  vv{jv}(jj(ii),:) = nan;
+	       end
+	    end
+	 end	 
+      end   
+   end
+
+
+   % If removing casts with all (strp=1) or any (strp=2) empty profiles
+   if strp>0 &  ~isempty(jj)
+      niv = length(iv);
+      if niv==1
+	 ii = find(all(isnan(vv{iv}(jj,:)),2));
+      else
+	 bad = zeros([niv length(jj)]);
+	 for jv = 1:niv
+	    bad(jv,:) = all(isnan(vv{iv(jv)}(jj,:)),2)';
+	 end
+	 if strp==1
+	    ii = find(all(bad));
+	 else
+	    ii = find(any(bad));
+	 end
+      end
+      jj(ii) = [];
+   end
+   
+   if ~isempty(jj)
+      njj = length(jj);
+      ncast = length(lat);
+
+      lat = [lat; la(jj)];
+      lon = [lon; lo(jj)];   
+      cpn = [cpn; stnno(jj)];
+      
+      for ii = 1:nhv
+	 varargout{ii} = [varargout{ii}; hv{ii}(jj)];
+      end
+
+      kk = 1:ndv;
+      kk(iv) = [];
+      
+      % For each variable not available in this dset. Note force minimum 2nd
+      % dimension of 1, or will crash when adding a [njj x 0] portion.
+      for ii = kk
+         ndep = max([1 size(varargout{nhv+ii},2)]);
+	 varargout{nhv+ii} = [varargout{nhv+ii}; repmat(nan,[njj ndep])];
+      end
+            
+      % For each variable in this dset
+      for ii = iv
+         ndep = size(varargout{nhv+ii},2);
+	 ldp = size(vv{ii},2);
+	 
+	 if ldp < ndep
+	    vout = [vv{ii}(jj,:) repmat(nan,[njj ndep-ldp])];
+	    varargout{nhv+ii} = [varargout{nhv+ii}; vout];
+	 else
+	    if ldp > ndep
+	       varargout{nhv+ii} = [varargout{nhv+ii} repmat(nan,[ncast ldp-ndep])];
+	    end
+	    varargout{nhv+ii} = [varargout{nhv+ii}; vv{ii}(jj,:)];
+	 end
+      end
+      
+      ldp = size(zd,2);
+      ndep = size(zdep,2);
+      if ldp < ndep
+	 zd = [zd(jj,:) repmat(nan,[njj ndep-ldp])];
+	 zdep = [zdep; zd];
+      else
+	 if ldp > ndep
+	    zdep = [zdep repmat(nan,[ncast ldp-ndep])];
+	 end
+	 zdep = [zdep; zd(jj,:)];
+      end
+
+   end
+   
+end                                 
+
+
+return
+
+
+%------------------------------------------------------------------------
+% Get non-WOD01 datasets
+%
+% NOTE: at this stage, only use per-cast QC flags, not the per-value ones.
+
+function [lo,la,stn,zdep,iv,hv,vv] = get_dset(dset,src,trng,dlim,nval,dmid,hvar,vars,scr);
+
+pth = '/home/oez5/boa_obslvl/';
+
+la = [];
+lo = [];
+zdep = [];
+stn = [];
+nhv = length(hvar);
+hv{nhv} = [];
+vv{length(vars)} = [];
+
+[iv,ih] = dset_vars(dset,1,vars,hvar);
+if isempty(iv)
+   return
+end
+% Set hvar to 99 where it is not present in this dset, so it will be later
+% nan-filled.
+hvrs = repmat(99,size(hvar));
+hvrs(ih) = hvar(ih);
+
+vnm = {'t','s','o2','si','po4','no3','nutdens','','','','','','','no4','nh3'};
+
+deps = [];
+stdmf = 0;
+stdnc = 0;
+
+switch dset
+           
+  case 7 
+    % CSIRO obs level data is stored in:
+    % - CTD-only CSLv3 file - accessed here
+    % - 2db per-cruise files - see dset 70
+    % - hydro obs file - see dset 72
+    % - historical no3 obs file - see dset 71
+
+    cellstored = 0;
+    stdnc = 1;    
+    fnm = '/home/oez5/eez_data/csl3/csiro/csiro_ctd_csl';
+    lat = getnc(fnm,'lat');
+    lon = getnc(fnm,'lon');
+    time = getnc(fnm,'time');
+    stnno = getnc(fnm,'stnno');
+    cdep = getnc(fnm,'depth');
+    if any(hvrs==4)
+       botdep = getnc(fnm,'botdepth');
+    end
+    if any(hvrs==5)
+       co = repmat(12345,[length(lat) 1]);
+    end
+    if any(hvrs==6)
+       cru = floor(stnno/1000);
+    end
+      
+            
+  case 9
+    % NIWA
+    cellstored = 0;
+    stdnc = 1;
+    fnm = [pth 'niwa/niwa_obs'];
+    lat = getnc(fnm,'lat');
+    lon = getnc(fnm,'lon');
+    time = getnc(fnm,'time');
+    stnno = getnc(fnm,'stnno');
+    cru = floor(stnno/10000);
+    pp = getnc(fnm,'pressure');
+    deps = repmat(nan,size(pp));
+    co = repmat(13873,size(lat));
+    for jj = 1:length(lat)
+       deps(jj,:) = sw_dpth(pp(jj,:),lat(jj));
+    end
+    
+    
+  case 10 
+    % French Indian 2001 CD
+    cellstored = 1;
+    stdmf = 1;
+    load([pth 'french_data/french_hydro']);
+    deps = depth';
+    botdep = botdepth;
+
+  
+  case 12
+    % TAO
+    cellstored = 0;
+    stdmf = 1;
+    load([pth 'tao/tao_obs']);
+    if any(iv==1) & any(iv==2)
+       disp('** TAO has different depths for T and S - so each variable')
+       disp('must be extracted separately. For now, using T depths. ***');
+    end
+    if any(iv==1)
+       deps = t_depth;
+    else
+       deps = s_depth;
+    end
+    clear t_depth s_depth
+
+  
+  case 13
+    % Antarctic CRC - 
+    % This file is the worst. T,S,o2 and nutdens are in CSLv3 matrices; no3,
+    % si and po4 are in cells and their z is pressure in var obspres. If want
+    % some of both, have to convert all to cells, on the fly, combining the 
+    % CSL and obs depths. This also means that per-value screening indices 
+    % into profiles will be mucked up if access both at once. 
+    
+    load([pth 'crc/crc_csl_obs']);    
+    botdep = botdp(:);
+    stnno = prid(:);
+    co = repmat(12345,size(stnno));
+
+    ivm = find(ismember(vars,[1 2 3 7]));
+    ivc = find(ismember(vars,[4 5 6]));
+    cdep = csl_dep(1:79,3);    
+
+    cellstored = ~isempty(ivc);
+    
+    if cellstored
+       if scr>1 & ~isempty(ivm) 
+	  disp(['** WARNING: scr>=2 conflicts with this combination of ' ...
+		'properties for dset 13']);
+       end
+       clear deps
+       for ii = 1:length(lat)
+	  if isempty(obspres{ii})
+	     deps{ii} = cdep;
+	     for jj = ivm
+		eval(['vin{ii}{jj} = ' vnm{vars(jj)} '(ii,:);']);
+	     end
+	  else
+	     obsdep = sw_dpth(obspres{ii},lat(ii));
+	     [deps{ii},indx] = sort([cdep(:); obsdep(:)]);
+	     blnk = repmat(nan,[1 length(deps{ii})]);
+	     kk = find(indx>79);
+	     for jj = ivc
+		eval(['vtmp = ' vnm{vars(jj)} '{ii};']);
+		if ~isempty(vtmp)
+		   vin{jj}{ii} = blnk;
+		   vin{jj}{ii}(kk) = vtmp;
+		end
+	     end
+	     kk = find(indx<=79);
+	     for jj = ivm	     
+		vin{jj}{ii} = blnk;
+		eval(['vin{jj}{ii}(kk) = ' vnm{vars(jj)} '(ii,:);']);
+	     end
+	  end
+       end
+    else       
+       for ii = ivm
+	  eval(['vin{ii} = ' vnm{vars(ii)} ';']);  
+       end
+    end
+    for ii = iv	  
+       if vars(ii)==7
+	  cflg{ii} = zeros(1,length(lat));
+       else
+	  eval(['cflg{ii} = ' vnm{vars(ii)} '_castflag;']);
+       end
+    end       
+  
+  
+  case 14
+    % Willis global
+    % This is a huge and homogeneous dataset (all casts to 750m, no nans)
+    % Easy to call get_willis directly, and that way uses less memory! 
+    cdep = 0:10:750;
+    idp = req_depth(dlim,nval,dmid,cdep);
+    if scr==3 & idp(1)~=1
+       disp('GET_ALL_OBS - WARNING scr=3 incompatible with dlim for dset=14'); 
+    end
+    cdep = cdep(idp);
+    [lon,lat,time,t,botdep,a1,a2,a3,a4,stnno] = get_willis(src,cdep);
+    clear a?
+    
+    
+  case 19
+    % WOCE3 WHP - this is pretty complicated. Have file WHPheads.mat, then
+    % woce3_ctd_ p, deps, o, s, t, then woce3_hyd. woce3_hyd contains bot_s,t 
+    % as well as hyd_s,t, also vars nite & nate.  For now, coded access to CTD
+    % data; leave hydro for now in the hope I will not have to code it!
+    cellstored = 1;
+    stdmf = 1;
+    load([pth 'woce_whp/woce3_ctd_deps']);
+    load([pth 'woce_whp/WHPheads'],'stnno','time','cri1','lat','lon');
+    cru = cri1;
+    if any(hvrs==4)
+       load([pth 'woce_whp/woce3_ctd_p'],'botdep');
+    end 
+    if any(vars==1)
+       load([pth 'woce_whp/woce3_ctd_t']);
+    end
+    if any(vars==2)
+       load([pth 'woce_whp/woce3_ctd_s']);
+    end
+    if any(vars==3)
+       load([pth 'woce_whp/woce3_ctd_o']);
+    end
+    if any(vars>3)
+       disp('GET_ALL_OBS: no access yet coded to WOCE hydro variables')
+    end
+    
+    
+  case 31
+    % AIMS Torres CTD 
+    load([pth 'other/torres']);
+    cellstored = 0;
+    stdmf = 1;
+    botdep = repmat(nan,size(lat));
+    
+    
+  case 35
+    % AWI (Alfred Wegener Institute) CTD
+    cellstored = 1;
+    stdmf = 1;
+    load([pth 'awi/awi_obs']);
+    botdep = bdep;
+    
+  case 70
+    % CSIRO 2db CTD - per-cruise files. Could be accessed here, but will 
+    % not code that unless shown to be required.
+    disp('CSIRO 2db CTD per-cruise files are not presently accessible via this')
+    disp('function.  Use read_csiro_2db.m instead.')
+    
+    
+  case 71
+    % CSIRO historical nitrate
+    cellstored = 1;
+    stdmf = 1;
+    load([pth 'csiro/csiro_no3_obs']);
+    stnno = prid;
+    if any(hvrs==4)
+       botdep = bdpth;
+    end
+    if any(hvrs==6)
+       cru = floor(stnno/1000);
+    end
+
+    
+  case 72
+    % CSIRO Hydro Obs-level file    
+    cellstored = 1;
+    stdmf = 1;
+    load([pth 'csiro/csiro_hyd_obs']);
+    botdep = bdpth;
+    
+end
+
+
+if stdnc
+   for ii = iv
+      vin{ii} = getnc(fnm,vnm{vars(ii)});
+      if vars(ii)==7
+	 cflg{ii} = zeros(1,length(lat));
+      else	 
+	 cflg{ii} = getnc(fnm,[vnm{vars(ii)} '_castflag']);
+      end
+   end  
+end
+
+if stdmf
+   for ii = iv
+      eval(['vin{ii} = ' vnm{vars(ii)} ';']);      
+      if exist([vnm{vars(ii)} '_castflag'],'var')
+	 eval(['cflg{ii} = ' vnm{vars(ii)} '_castflag;']);
+      else
+	 cflg{ii} = zeros(1,length(lat));
+      end
+   end
+   clear *_castflag
+end
+
+
+if isempty(src)
+   jj = 1:length(lon);
+elseif min(size(src))==1
+   jj = find(lon>=src(1) & lon<=src(2) & lat>=src(3) & lat<=src(4));
+else
+   jj = find(inpolygon(lon,lat,src(:,1),src(:,2)));
+end
+    
+if ~isempty(trng) & ~isempty(jj)
+   kk = find(time(jj)<trng(1) | time(jj)>=trng(2));
+   jj(kk) = [];
+end
+
+
+if ~isempty(jj)
+   
+   % Initialising variables
+   ntot = 0;
+   nblk = 500;
+   zdep = repmat(nan,[nblk 1]);
+   for ii = iv
+      vv{ii} = repmat(nan,[nblk 1]);
+   end
+   nbuf = nblk;
+    
+   % Before finding and loading data, apply the required level of screening
+   % by nan-ing any flagged data (or removing that data from cells). 
+   % Pre-working this saves dealing with lots of cases while finding and
+   % loading the data.  
+   
+   for ii = iv
+      % For each property, per-value screen if required:
+      if scr>=2 & vars(ii)<=6 & ~isempty(vv{ii}) 
+	 pnm = prop_name(vars(ii));
+	 fnm = ['/home/oez5/eez_data/qc_data/' num2str(dset) '/' pnm '_obs_scr'];
+	 if exist([fnm '.mat'],'file')
+	    load(fnm);
+	    [tmp,ijj,iscr] = intersect(stnno(jj),scrstn);
+	    
+	    % Tribute to the god of indexing....
+	    if cellstored & ~isempty(ijj)
+	       for kk = 1:length(ijj)
+		  vin{ii}{jj(ijj(kk))}(scridx{iscr(kk)}) = nan;
+	       end
+	    elseif  ~isempty(ijj)
+	       for kk = 1:length(ijj)
+		  vin{ii}(jj(ijj(kk)),scridx{iscr(kk)}) = nan;
+	       end
+	    end		  
+	 end
+      end
+	 
+      % Per-cast screening, if requested
+      if scr>=1 
+	 kk = jj(find(cflg{ii}(jj)~=0));
+	 if cellstored
+	    for jk = kk(:)'
+	       vin{ii}{jk} = [];
+	    end	    
+	 else
+	    vin{ii}(kk,:) = nan;
+	 end
+      end            
+   end  % Loop on iv
+
+
+   if cellstored   
+      for nn = 1:length(jj)
+	 kk = jj(nn);
+	 % For each required station, find all depths in required range which
+	 % have valid data for any of the required properties.
+	 
+	 ll = [];
+	 for ii = iv
+	    if ~isempty(vin{ii}{kk})
+	       if isempty(ll)		  
+		  ll = ~isnan(vin{ii}{kk});
+	       else
+		  ll = ll | ~isnan(vin{ii}{kk});
+	       end
+	    end
+	 end
+	 
+	 if any(ll)
+	    if scr==3
+	       ll = 1:length(deps{kk});
+	    else
+	       ll = find(ll);
+	    end
+	    idp = ll(req_depth(dlim,nval,dmid,deps{kk}(ll)));
+	 else
+	    idp = [];
+	 end	 
+
+	 % We will reject all casts which have no data in the required depth range 
+         if isempty(idp)
+	    jj(nn) = 0;
+	 else
+	    ntot = ntot+1;
+	    if ntot>nbuf
+	       % then need to extend pre-allocation of output arrays
+	       for ii = iv
+		  vv{ii} = [vv{ii}; repmat(nan,[nblk size(vv{ii},2)])];
+	       end
+	       zdep = [zdep; repmat(nan,[nblk size(zdep,2)])];
+	       nbuf = nbuf+nblk;
+	    end
+	    
+	    ndep = length(idp);	    
+	    if ndep > size(zdep,2)
+	       zdep = [zdep repmat(nan,[nbuf ndep-size(zdep,2)])];
+	    end
+	    zdep(ntot,1:ndep) = deps{kk}(idp);
+	       
+	    for ii = iv
+	       if ~isempty(vin{ii}{kk})
+		  if ndep>size(vv{ii},2)
+		     vv{ii} = [vv{ii} repmat(nan,[nbuf ndep-size(vv{ii},2)])];
+		  end
+		  vv{ii}(ntot,1:ndep) = vin{ii}{kk}(idp);
+	       end
+	    end
+	 end
+      end
+
+   else
+      % Stored as matrices
+      
+      % For now, check vars are dimensioned properly
+      for ii = iv
+	 if size(vin{ii},1) ~= length(lon)
+	    disp(['Transpose var ' num2str(vars(ii)) ' in dset ' num2str(dset)]);
+	    vin{ii} = vin{ii}.';
+	 end
+      end
+
+      if isempty(deps)
+	 deps = repmat(cdep(:)',[max(jj) 1]);
+      end
+      ldep = size(deps,2);
+      
+      for nn = 1:length(jj)
+	 kk = jj(nn);
+	 % For each required station, find all depths in required range which
+	 % have valid data for any of the required properties.
+
+	 ll = zeros(1,ldep);
+	 for ii = iv
+	    if any(~isnan(vin{ii}(kk,:)))
+	       ll = ll | ~isnan(vin{ii}(kk,:));
+	    end
+	 end
+
+	 if any(ll)
+	    if scr==3
+	       ll = 1:ldep;
+	    else
+	       ll = find(ll);
+	    end
+	    idp = ll(req_depth(dlim,nval,dmid,deps(kk,ll)));
+	 else
+	    idp = [];
+	 end	 
+
+         if isempty(idp)
+	    % will reject casts which have no data in the required depth range
+	    jj(nn) = 0;
+	 else
+	    ntot = ntot+1;
+
+	    if ntot>nbuf
+	       % then need to extend pre-allocation of output arrays
+	       for ii = iv
+		  vv{ii} = [vv{ii}; repmat(nan,[nblk size(vv{ii},2)])];
+	       end
+	       zdep = [zdep; repmat(nan,[nblk size(zdep,2)])];
+	       nbuf = nbuf+nblk;
+	    end
+	    
+	    ndep = length(idp);
+	    if ndep > size(zdep,2)
+	       zdep = [zdep repmat(nan,[nbuf ndep-size(zdep,2)])];
+	    end
+	    zdep(ntot,1:ndep) = deps(kk,idp);
+	    for ii = iv
+	       if ndep>size(vv{ii},2)
+		  vv{ii} = [vv{ii} repmat(nan,[nbuf ndep-size(vv{ii},2)])];
+	       end
+	       vv{ii}(ntot,1:ndep) = vin{ii}(kk,idp);
+	    end	 
+	 end
+      end
+   end   
+   
+   jj(find(jj==0)) = [];   
+   nj = length(jj);
+
+   if nj>0
+      la = lat(jj);
+      lo = lon(jj);
+      stn = stnno(jj);
+   
+      for ii = 1:nhv
+	 switch hvrs(ii)
+	   case 1
+	     hv{ii} = stn;
+	   case 2
+	     hv{ii} = time(jj);
+	   case 3
+	     hv{ii} = cflag(jj);
+	   case 4
+	     hv{ii} = botdep(jj);
+	   case 5
+	     hv{ii} = co(jj);
+	   case 6
+	     hv{ii} = cru(jj);
+	   case 9
+	     hv{ii} = repmat(dset,[nj 1]);
+	   otherwise
+	     hv{ii} = repmat(nan,[nj 1]);		 
+	 end
+      end	
+   end   
+
+   % Trim pre-allocated variables
+   zdep = zdep(1:ntot,:);
+   for ii = iv
+      vv{ii} = vv{ii}(1:ntot,:);
+   end
+end
+
+
+return
+
+%------------------------------------------------------------------------
+% WOD01 is different because stored in WMO files.
+
+function [lo,la,pn,zdep,iv,hv,vv] = get_wod01(dset,src,trng,dlim,nval,dmid,hvar,vars,scr);
+
+
+la = [];
+lo = [];
+pn = [];
+zdep = [];
+nhv = length(hvar);
+hv{nhv} = [];
+vv{length(vars)} = [];
+
+if dset>=25
+   disp(['No access to dataset ' num2str(dset) ' yet!'])
+   return
+end
+  
+iv = dset_vars(dset,1,vars);
+
+% Conversion between our property codes and these used in the WOD files:
+%        t  s  o2  si  po4  no3
+wvar =  [1  2  3   6    4    8];
+
+
+pth = '/home/oez5/boa_obslvl/wod01/';
+prefx = {'CTD','OSD','PFL','UOR','DRB','MBT','MRB','XBT'};
+ids = dset-20;
+
+if isempty(src)
+   src = [0 360 -80 80];
+end    
+if min(size(src))==1
+   wmosq = getwmo(src);
+else
+   wmosq = getwmo(...
+       [min(src(:,1)) max(src(:,1)) min(src(:,2)) max(src(:,2))]);
+end
+
+
+% Initialise variables
+ntot = 0;
+nblk = 500;
+zdep = repmat(nan,[nblk 1]);
+for ii = iv
+   vv{ii} = repmat(nan,[nblk 1]);
+end
+nbuf = nblk;
+
+
+for wmo = wmosq
+   flnm = [pth prefx{ids} '/' prefx{ids} num2str(wmo)];
+
+   if ~exist([flnm '.mat'],'file')
+      jj = [];
+   else
+      load(flnm)
+      if min(size(src))==1
+	 jj = find(lon>=src(1) & lon<=src(2) & lat>=src(3) & lat<=src(4));
+      else
+	 jj = find(inpolygon(lon,lat,src(:,1),src(:,2)))';
+      end
+
+      if ~isempty(trng) & ~isempty(jj)
+	 kk = find(time(jj)<trng(1) | time(jj)>=trng(2));
+	 jj(kk) = [];
+      end
+   end
+   
+   if ~isempty(jj)      
+      % If screening, clobber property codes whereever "cast flag" is set
+      if scr>0
+	 rr = find(ierror~=0);
+	 ipcode(rr) = 0;
+      end
+      
+      for nn = 1:length(jj)
+	 kk = jj(nn);
+	 % For each required station, find all depths in required range which
+	 % have valid data for any of the required properties. 
+	 % ivw indexes vars which are present for this cast
+	 % wiv indexes the profs which match those vars 
+	 ll = zeros(1,length(deps{kk}));
+	 ivw = [];
+	 for ii = iv
+	    gg = find(ipcode(kk,:)==wvar(vars(ii)));
+	    if ~isempty(gg)
+	       if scr>=2 
+		  ll = ll | (~isnan(profs{kk}(:,gg)) & iderror{kk}(:,gg)==0)';
+	       else	
+		  ll = ll | ~isnan(profs{kk}(:,gg))';
+	       end
+	       ivw = [ivw ii];
+	       wiv(ii) = gg;
+	    end
+	 end
+
+	 if any(ll)
+	    if scr==3
+	       ll = 1:length(deps{kk});
+	    else
+	       ll = find(ll);
+	    end
+            idp = ll(req_depth(dlim,nval,dmid,deps{kk}(ll)));
+         else
+            idp = [];
+         end
+
+         if isempty(idp)
+	    % will reject casts which have no data in the required depth range
+	    jj(nn) = 0;
+	 else
+            ntot = ntot+1;
+            if ntot>nbuf
+               for ii = iv
+                  vv{ii} = [vv{ii}; repmat(nan,[nblk size(vv{ii},2)])];
+               end
+               zdep = [zdep; repmat(nan,[nblk size(zdep,2)])];
+               nbuf = nbuf+nblk;
+            end
+
+	    ndep = length(idp);
+	    if ndep > size(zdep,2)
+	       zdep = [zdep repmat(nan,[nbuf ndep-size(zdep,2)])];
+	    end
+            zdep(ntot,1:ndep) = deps{kk}(idp);
+
+            for ii = ivw
+               if ndep>size(vv{ii},2)
+                  vv{ii} = [vv{ii} repmat(nan,[nbuf ndep-size(vv{ii},2)])];
+               end
+	       if scr>=2 & any(iderror{kk}(idp,wiv(ii)) > 0)
+		  mm = find(iderror{kk}(:,wiv(ii)) > 0);
+		  profs{kk}(mm,wiv(ii)) = nan;
+	       end
+	       vv{ii}(ntot,1:ndep) = profs{kk}(idp,wiv(ii))';
+            end
+         end
+      end       % for each suitable cast
+
+      jj(find(jj==0)) = [];
+   end	% if some suitable casts in this file 
+	 
+	 
+   if ~isempty(jj)
+      nj = length(jj);
+	 
+      la = [la; lat(jj)'];
+      lo = [lo; lon(jj)'];
+      pn = [pn; ocl(jj)'];
+	 
+      for ii = 1:nhv
+	 switch hvar(ii)
+	   case 1
+	     hv{ii} = [hv{ii}; ocl(jj)'];
+	   case 2
+	     hv{ii} = [hv{ii}; time(jj)'];
+	   case 4
+	     hv{ii} = [hv{ii}; botdep(jj)'];
+	   case 5
+	     hv{ii} = [hv{ii}; cc(jj)'];
+	   case 6
+	     hv{ii} = [hv{ii}; cru(jj)'];
+	   case 9
+	     hv{ii} = [hv{ii}; repmat(dset,[nj 1])];
+	   otherwise
+	     hv{ii} = [hv{ii}; repmat(nan,[nj 1])];		 
+	 end
+      end	      
+   end    % endif ~isempty(jj)
+
+end     % endfor wmo = wmosq 
+
+
+% Trim pre-allocated variables
+zdep = zdep(1:ntot,:);
+for ii = iv
+   vv{ii} = vv{ii}(1:ntot,:);
+end
+
+
+
+%-----------------------------------------------------------------------------
+function idp = req_depth(dlim,nval,dmid,deps)
+
+            
+% Limit to depth range, if required
+if ~isempty(dlim)
+   idp = find(deps>=dlim(1) & deps<=dlim(2));
+else
+   idp = 1:length(deps);
+end
+
+% Limit number of values, if required
+if length(idp)>nval
+   % Extract around a mid-depth, if required
+   if ~isempty(dmid)
+      [tmp,sss] = sort(abs(deps(idp)-dmid));
+      idp = idp(sort(sss(1:nval)));
+   else
+      idp = idp(1:nval);
+   end
+end
+
+%---------------------------------------------------------------------------
+@
+
+
+1.6
+log
+@Totally recreated for the 2005 Bluelink ocan Ocean data collation.
+@
+text
+@a2 2
+%   **** Still under development ??? *****
+%
+d6 2
+d12 1
+a12 1
+%         1)CPN   2)time   3)castflag  4)bot_depth   5)country   6)cruise
+d17 2
+d27 2
+d54 1
+a54 1
+% $Id: $
+d61 2
+a62 4
+if nargin<5
+   disp('  GET_ALL_OBS  requires 5 or more input arguments')
+   help get_all_obs
+   return
+d65 3
+a67 1
+if length(dlim)==1
+d84 8
+a91 1
+end   
+d146 1
+a146 1
+dupth = '/home/eez_data/duplicates/';
+d154 1
+a154 1
+   
+d231 1
+a231 1
+	    vout = [vv{ii} repmat(nan,[njj ndep-ldp])];
+d278 1
+a278 36
+% Header names: 1-stn  2-time  3-cflag  4-botdep  5-co  6-cru  
+% Header vars are all column vectors
+
+dshvlst{7} = [1 2 4 5 6];
+dshvlst{8} = [1 2 4 9];
+dshvlst{9} = [1 2 3 4 5 9];
+dshvlst{10} = [1 2 3 4 6 9];
+dshvlst{12} = [1 2 6 9];
+dshvlst{13} = [1 2 3 4 5 6 9];
+dshvlst{14} = [1 2 4 9];
+dshvlst{17} = [1 2 4 9];
+dshvlst{18} = [1 2 4 9];
+dshvlst{19} = [1 2 3 4 6 9];
+dshvlst{20} = [1 2 4 9];
+dshvlst{31} = [1 2 3 4 5 9];
+dshvlst{35} = [1 2 3 6 9];
+dshvlst{71} = [1 2 4 6 9];
+dshvlst{72} = [1 2 4 5 6 9];
+
+dsdvlst{7} = [1 2 7];
+dsdvlst{8} = 1;
+dsdvlst{9} = [1 2 3 7];
+dsdvlst{10} = [1 2 7];
+dsdvlst{12} = [1 2];
+dsdvlst{13} = [1 2 3 4 5 6 7];
+dsdvlst{14} = 1;
+dsdvlst{17} = 1;
+dsdvlst{18} = 1;
+dsdvlst{19} = [1 2 3 4 5 6 7 14];
+dsdvlst{20} = 1;
+dsdvlst{31} = [1 2];
+dsdvlst{35} = [1 2];
+dsdvlst{71} = 6;
+dsdvlst{72} = [1 2 3 4 5 6 7 14 15];
+
+iv = find(ismember(vars,dsdvlst{dset}));
+d282 4
+d290 2
+a296 2
+    % - 2db per-cruise files (could be accessed here, but will not code that
+    %   unless shown to be required)
+d298 1
+d303 1
+a303 1
+    
+d308 1
+a308 1
+    stnno = getnc(fnm,'profilid');
+d310 1
+a310 1
+    if any(hvar==4)
+d313 1
+a313 1
+    if any(hvar==5)
+d316 1
+a316 1
+    if any(hvar==6)
+d319 1
+a319 11
+    
+    for ii = iv
+       vin{ii} = getnc(fnm,vnm{vars(ii)});
+       if vars(ii)==7
+	  cflg{ii} = zeros(1,length(lat));
+       else
+	  cflg{ii} = getnc(fnm,[vnm{vars(ii)} '_castflag']);
+       end
+    end    
+       
+  
+d324 1
+a325 1
+    stnno = getnc(fnm,'stnno');
+d329 2
+d332 2
+a333 1
+    deps = zeros(size(pp));
+a336 9
+    for ii = iv	  
+       if vars(ii)==7
+	  vin{ii} = getnc(fnm,'neut_density');
+	  cflg{ii} = zeros(1,length(lat));
+       else
+	  vin{ii} = getnc(fnm,vnm{vars(ii)});
+	  cflg{ii} = getnc(fnm,[vnm{vars(ii)} '_castflag']);;
+       end
+    end       
+d342 1
+d345 1
+a345 11
+    botdep = botdepth';
+    lat = lat';
+    lon = lon';
+    time = time';
+    for ii = iv
+       eval(['vin{ii} = ' vnm{vars(ii)} ';']);
+       if iv==1 | iv==2
+	  eval(['cflg{ii} = ' vnm{vars(ii)} '_castflag;']);
+       end
+    end
+    clear depth t s nutdens
+d351 1
+a352 5
+    deps = depth';
+    for ii = iv
+       eval(['vin{ii} = ' vnm{vars(ii)} ';']);
+       eval(['cflg{ii} = ' vnm{vars(ii)} '_castflag;']);
+    end
+d362 1
+a362 1
+    clear t_depth s_depth t s
+d370 2
+a371 1
+    % CSL and obs depths.
+d374 3
+a376 2
+    botdep = botdp;
+    stnno = prid;
+d383 1
+d385 5
+d398 1
+a398 1
+	     [deps{ii},indx] = sort([cdep obsdep]);
+d402 2
+a403 2
+		eval(['tmp = ' vnm{vars(jj)} '{ii};']);
+		if ~isempty(tmp)
+d405 1
+a405 1
+		   vin{jj}{ii}(kk) = tmp;
+d429 14
+d445 3
+a447 3
+    % woce3_ctd_ p,o,s,t, then woce3_hyd. woce3_hyd contains bot_s,t as well
+    % as hyd_s,t,  also vars nite & nate. 
+    % Leave this for now in the hope I will not have to code it!
+d449 20
+a468 3
+    disp('GET_ALL_OBS: WOCE access not coded yet')
+    lon = [];
+    %load('/home/oez5/boa_obslvl/woce_whp/WHPheads');
+d474 1
+d481 1
+d483 8
+a490 1
+  
+d495 1
+d498 1
+a498 1
+    if any(hvar==4)
+d501 1
+a501 1
+    if any(hvar==6)
+a503 2
+    vin{iv} = no3;
+    cflg{iv} = no3_castflag;
+d509 1
+a511 10
+    stnno = prid;
+    for ii = iv
+       eval(['vin{ii} = ' vnm{vars(ii)} ';']);
+       if vars(ii)==7
+	  cflg{ii} = zeros(1,length(lat));
+       else
+	  eval(['cflg{ii} = ' vnm{vars(ii)} '_castflag;']);
+       end
+    end
+    clear *_castflag *_qcflag
+d516 24
+d569 1
+a569 1
+
+d572 3
+a574 2
+      if scr==2 & vars(iv)<=6 & ~isempty(vv{iv}) 
+	 fnm = [infodir num2str(dset) '/' parnm{vars(iv)} '_obs_scr'];
+d593 8
+a600 5
+      if scr==1 & cellstored
+	 for kk = jj(ijj)'
+	    if cflg{ii}(kk)~=0
+	       vin{ii}{kk} = [];
+	    end
+d602 1
+a602 7
+      elseif scr==1	    	    
+	 for kk = jj(:)'
+	    if cflg{ii}(kk)~=0
+	       vin{ii}(kk,:) = nan;
+	    end
+	 end	    
+      end      
+d612 1
+a612 3
+	 %Previous comment: "dset 72: profs [n x 1]" - what does that mean??
+	 
+	 ll = zeros(1,length(deps{kk}));
+d615 5
+a619 1
+	       ll = ll | ~isnan(vin{ii}{kk}');
+d622 1
+a622 1
+
+d624 5
+a628 1
+	    ll = find(ll);
+d640 1
+d649 3
+d694 5
+a698 1
+	    ll = find(ll);
+d709 1
+d711 1
+d719 4
+a722 1
+	    ndep = length(idp);	    
+a723 1
+
+d743 17
+a759 21
+	 if any(hvar(ii)==dshvlst{dset})
+	    switch hvar(ii)
+	      case 1
+		hv{ii} = stn;
+	      case 2
+		hv{ii} = time(jj);
+	      case 3
+		hv{ii} = cflag(jj);
+	      case 4
+		hv{ii} = botdep(jj);
+	      case 5
+		hv{ii} = co(jj);
+	      case 6
+		hv{ii} = cru(jj);
+	      case 9
+		hv{ii} = repmat(dset,[nj 1]);
+	      otherwise
+		hv{ii} = repmat(nan,[nj 1]);		 
+	    end
+	 else
+	    hv{ii} = repmat(nan,[nj 1]);
+d793 1
+a793 10
+dsdvlst{21} = [1 2 3 7];
+dsdvlst{22} = [1 2 3 4 5 6 7];
+dsdvlst{23} = [1 2 7];
+dsdvlst{24} = [1 2 7];
+dsdvlst{25} = [1 2 7];
+dsdvlst{26} = [1 2 7];
+dsdvlst{27} = [1 2 7];
+dsdvlst{28} = 1;
+
+iv = find(ismember(vars,dsdvlst{dset}));
+d861 6
+a866 6
+	    if scr>=2 & ~isempty(gg)	  
+	       ll = ll | (~isnan(profs{kk}(:,gg)) & iderror{kk}(:,gg)==0)';
+	       ivw = [ivw ii];
+	       wiv(ii) = gg;
+	    elseif ~isempty(gg)	  
+	       ll = ll | ~isnan(profs{kk}(:,gg))';
+d873 5
+a877 1
+	    ll = find(ll);
+d897 3
+d972 1
+a972 1
+      [tmp,sss] = sort(abs(dtmp(idp)-dmid));
+@
+
+
+1.5
+log
+@After restructure, allow for French data, in Aug 2002.
+@
+text
+@d1 7
+a7 2
+% GET_ALL_OBS  Get observed-level data for mapping or screening
+%     
+a8 8
+%  hvar    vector of one or more cast header info codes:
+%         1)CPN   2)time   3)OCL   4)castflag   5)country   6)cruise
+%         7)bot_depth   8)pos_stat  9)filetype (ie see "suf" below) 
+%  var     vector of property codes:  
+%         ** NOTE: WOD98 vars must all belong to the same file prefix, eg 
+%            [1 2 3 9] is ok (all from 'ts_' files), but [2 10] is not **
+%         1)t   2)s   3)gamma   4)02   5)Si   6)PO4   7)NO3   8)tflag
+%         9)sflag   10)oflag   11)siflag   12)pflag   13)nflag  
+d11 30
+a40 8
+%  suf    vector of filetype suffix codes  (For details, type:  help suf_codes):
+%         1)ctd  2)ctd2  3)bot  4)bot2  5)xbt  6)xbt  7)CSIRO_CSL_CTD
+%         8)CSIRO_HydObs  9)NIWA  10) French CD
+%  deps   upper and lower depth limits 
+% OUTPUT: 
+%  zdep    [ncast ndep]
+%  h1 etc  [ncast X 1] header vars in order requested
+%  v1 etc  [ncast ndep] data vars in order requested
+d42 4
+a45 2
+% NOTE:  For each cast-row and depth-column, there will be at least some data
+%        in at least one of the returned variables.
+d47 2
+a48 9
+% AUTHOR: Jeff Dunn  CSIRO Marine Research Dec 1999
+% MODS:   Mar 2002, allow all header info to be returned.
+%         Aug 02, Restructure, allow for French CD data
+%
+% FUTURE WORK:  Allow cast flag screening to be disabled?
+%
+% $Id: get_all_obs.m,v 1.4 2002/03/13 10:09:08 dun216 Exp dun216 $
+% 
+% USAGE: [lat,lon,zdep,h1,h2,... v1,v2,..] = get_all_obs(hvar,vars,src,suf,deps)
+d50 12
+a61 1
+function [lat,lon,zdep,varargout] = get_all_obs(hvar,vars,src,suf,deps)
+d63 3
+a65 2
+nvars = length(vars);
+nhvar = length(hvar);
+d67 18
+a84 2
+lat = []; lon = []; zdep = [];    
+varargout{nvars+nhvar} = [];
+d86 18
+a103 2
+if length(deps)==1
+   deps = deps([1 1]);
+d106 3
+a108 3
+ii = find(suf<=6);
+wsuf = suf(ii);
+suf(ii) = [];
+d110 15
+a124 10
+if ~isempty(wsuf)
+   [lat,lon,zdep,vout] = getwod98(src,hvar,vars,wsuf,deps);
+   if ~isempty(lat)
+      zdep = zdep';
+      for ii = 1:nhvar
+	 varargout{ii} = vout{ii};
+      end
+      for ii = nhvar+(1:nvars)
+	 varargout{ii} = vout{ii}';
+      end
+d127 5
+d133 1
+d135 5
+a139 21
+for isuf = suf
+   chkempty = 1;
+   if isuf==7
+      % Calc and restrict stdep as only 56 levels in CSL file.
+      stdep = [ceil(dep_csl(deps(1))) min([56 floor(dep_csl(deps(2)))])];
+      if stdep(1)<=stdep(2)
+	 stdep = stdep(1):stdep(2);
+	 [la,lo,hout,vout] = CSIROctdcsl(src,stdep,hvar,vars);
+	 zd = repmat(csl_dep(stdep),[length(lo) 1]);
+      else
+	 la = [];
+      end
+   elseif isuf==8
+      csldup = any(suf==7);
+      [la,lo,zd,hout,vout] = get_hyd(hvar,vars,deps,src,csldup);
+      chkempty = 0;
+   elseif isuf==9
+      [la,lo,zd,hout,vout] = get_niwa(hvar,vars,deps,src);
+   elseif isuf==10
+      [la,lo,zd,hout,vout] = get_frog(hvar,vars,deps,src);
+      chkempty = 0;
+d141 29
+a169 1
+      error(['File suffix ' num2str(isuf) ' is unknown']);
+a171 3
+   if ~isempty(la)
+      lat = [lat; la];
+      lon = [lon; lo];
+d173 15
+a187 2
+      for ii = 1:nhvar
+	 varargout{ii} = [varargout{ii}; hout{ii}];
+d189 10
+d200 3
+a202 1
+      [ncst,ndep] = size(vout{1});
+d204 14
+a217 8
+      % Before including this data, check if all variables have data at all 
+      % depths - if not we can trim out those empty depths. Not required for 
+      % get_hyd data as that is pre-trimmed.
+      if chkempty
+	 gotdat = zeros(1,ndep);
+	 for ii = 1:length(vout)
+	    gotdat = gotdat | any(~isnan(vout{ii}));
+	 end
+d219 6
+a224 4
+	 gotdat = find(gotdat);
+	 if length(gotdat)<ndep
+	    for ii = 1:length(vars)
+	       vout{ii} = vout{ii}(:,gotdat);
+d226 1
+a226 2
+	    zd = zd(:,gotdat);
+	    ndep = length(gotdat);
+d229 6
+a234 9
+
+      [mcst,mdep] = size(varargout{nhvar+1});
+   
+      if ndep>mdep
+	 mpad = repmat(nan,mcst,ndep-mdep);
+	 npad = [];
+      elseif ndep<mdep
+	 mpad = [];
+	 npad = repmat(nan,ncst,mdep-ndep);
+d236 4
+a239 2
+	 mpad = [];
+	 npad = [];
+d241 2
+d244 1
+a244 7
+      for iv=1:nvars
+	 ii = nhvar+iv;
+	 varargout{ii} = [[varargout{ii} mpad]; [vout{iv} npad]];
+      end
+      zdep =  [[zdep mpad]; [zd npad]];
+   end
+end
+d249 1
+d251 3
+d255 1
+a255 4
+function [lat,lon,zd,hout,vout] = get_niwa(hvar,vars,deps,src)
+
+lat = []; lon = []; zd = [];
+hout{1} = []; vout{1} = [];
+d257 1
+a257 3
+if ~any(vars<=4)
+   return
+end
+d259 42
+a300 1
+% Calc and restrict stdep as only 57 levels in NIWA file.
+d302 2
+a303 2
+stdep = [ceil(dep_csl(deps(1))) floor(dep_csl(deps(2)))];
+if min(stdep)>57 | stdep(1)>stdep(2)
+d307 1
+a307 2
+stdep = stdep(1):min([stdep(2) 57]);
+ndeps = length(stdep);
+d309 1
+a309 1
+load /home/eez_data/hydro/niwa_csl
+d311 219
+a529 5
+% Index only unflagged casts, and reduce to those within region
+mm = find(cflag==0);
+   
+if min(size(src))==1
+   ii = mm(find(lon(mm)>=src(1) & lon(mm)<=src(2) & lat(mm)>=src(3) & lat(mm)<=src(4)));
+d531 6
+a536 1
+   ii = mm(find(inpolygon(lon(mm),lat(mm),src(:,1),src(:,2))));
+d539 36
+a574 38
+nnew = length(ii);
+lat = lat(ii);
+lon = lon(ii);
+
+if nnew>0   
+   for iv = 1:length(hvar)
+      switch hvar(iv)
+	case 1
+	  hout{iv} = prid(ii);
+	case 2
+	  hout{iv} = time(ii);
+	case 4
+	  hout{iv} = cflag(ii);
+	case 5
+	  hout{iv} = repmat(13873,size(ii));
+	case 6
+	  hout{iv} = floor(prid(ii)/10000);
+	case 7
+	  hout{iv} = botdepth(ii);
+	case 9
+	  hout{iv} = repmat(9,size(ii));
+	otherwise
+	  hout{iv} = repmat(nan,size(ii));	  
+      end
+   end 
+
+   for iv=1:length(vars)
+      switch vars(iv)
+	case 1
+	  vout{iv} = t(ii,stdep);
+	case 2
+	  vout{iv} = s(ii,stdep);
+	case 3
+	  vout{iv} = nutdens(ii,stdep);
+	case 4
+	  vout{iv} = o2(ii,stdep);
+	otherwise
+	  vout{iv} = repmat(nan,[nnew ndeps]);
+d576 16
+a591 1
+   end
+a592 2
+   zd = repmat(csl_dep(stdep),[nnew 1]);
+end
+d594 14
+a607 1
+return
+d609 6
+a614 1
+%------------------------------------------------------------------------
+d616 26
+a641 1
+function [lat,lon,depth,hout,vout] = get_frog(hvar,vars,deps,src)
+d643 10
+a652 2
+lat = []; lon = []; depth = [];
+hout{1} = []; vout{1} = [];
+d654 16
+a669 3
+if ~any(vars<=3)
+   return
+end
+d671 6
+a676 1
+load /home/eez_data/french_data/french_hydro lat lon cflag depth
+d678 25
+a702 2
+% Index only unflagged casts, and reduce to those within region
+mm = find(cflag==0);
+d704 2
+a705 8
+if min(size(src))==1
+   ii = mm(find(lon(mm)>=src(1) & lon(mm)<=src(2) & lat(mm)>=src(3) & lat(mm)<=src(4)));
+else
+   ii = mm(find(inpolygon(lon(mm),lat(mm),src(:,1),src(:,2))));
+end
+
+lat = lat(ii);
+lon = lon(ii);
+d707 4
+a710 3
+if ~isempty(ii)
+   depth = depth(ii);
+   cflag = cflag(ii);
+d712 25
+a736 23
+   for iv = 1:length(hvar)
+      switch hvar(iv)
+	case 1
+	  hout{iv} = 80000000+ii;
+	case 2
+	  load /home/eez_data/french_data/french_hydro time
+	  hout{iv} = time(ii);
+	case 4
+	  hout{iv} = cflag;
+	case 5
+	  hout{iv} = repmat(nan,size(ii));
+	case 6
+	  load /home/eez_data/french_data/french_hydro cru_num
+	  hout{iv} = cru_num(ii);
+	case 7
+	  load /home/eez_data/french_data/french_hydro botdepth
+	  hout{iv} = botdepth(ii);
+	case 9
+	  hout{iv} = repmat(10,size(ii));
+	otherwise
+	  hout{iv} = repmat(nan,size(ii));	  
+      end
+   end 
+d738 4
+a741 17
+   gvars = find(vars(:)'<=3);
+   
+   for iv = gvars
+      switch vars(iv)
+	case 1
+	  load /home/eez_data/french_data/french_hydro t
+	  vout{iv} = t(ii);
+	  clear t
+	case 2
+	  load /home/eez_data/french_data/french_hydro s
+	  vout{iv} = s(ii);
+	  clear s
+	case 3
+	  load /home/eez_data/french_data/french_hydro nutdens
+	  vout{iv} = nutdens(ii);
+	  clear nutdens
+      end
+d743 1
+a744 9
+   [depth,vout,good] = reduc_cells(depth,vout,deps,gvars);
+   
+   % Reduce header info to only good casts
+   lon = lon(good);
+   lat = lat(good);
+   for jj = 1:length(hvar)
+      hout{jj} = hout{jj}(good);
+   end
+end
+d748 2
+a749 6
+%-------------------------------------------------------------------------
+% Can request any combination of vars, so casts which are also in CTD file
+% are not immediately rejected - they are simply not loaded with t, s, and
+% neutral density. Only casts with some data are returned, so many of these
+% CTD casts will drop out anyway (or all of them, if only t,s, & nd are
+% requested.)
+d751 1
+a751 1
+function [la,lo,zd,hout,vout] = get_hyd(hvar,vars,drng,src,csldup)
+a752 1
+fname = '/home/eez_data/csiro_obs/csiro_hyd_obs';
+d754 7
+a760 3
+nvars = length(vars);
+nhvar = length(hvar);
+hout{nhvar} = [];
+d762 28
+a789 3
+load(fname,'lat','lon','cflag');
+
+% Index only unflagged casts in region
+d791 1
+a791 1
+   in1 = find(lon>=src(1) & lon<=src(2) & lat>=src(3) & lat<=src(4) & ~cflag);
+d793 2
+a794 1
+   in1 = find(inpolygon(lon,lat,src(:,1),src(:,2)) & ~cflag);
+a796 13
+if csldup & ~isempty(in1)
+   % If require t or s, don't use hydro casts already found in CTD file.
+   load(fname,'ihydctd');
+   [jj,okts] = setdiff(in1,ihydctd);
+   clear ihydctd
+   if ~any(vars>3)
+      in1 = in1(okts);
+      lin1 = length(in1);
+      okts = 1:lin1;
+   end
+else
+   okts = 1:length(in1);
+end
+d798 6
+a803 3
+if isempty(in1)
+   la = [];
+   return
+d805 1
+a806 35
+lin1 = length(in1);
+la = lat(in1); 
+lo = lon(in1);
+
+hout = loadh(hout,hvar,fname,in1);
+
+load(fname,'deps');
+zd = deps(in1);
+
+
+for ii = 1:nvars
+   vout{ii}{lin1} = [];
+   switch vars(ii)
+     case 1
+       load(fname,'t');
+       vout{ii}(okts) = t(in1(okts));
+     case 2
+       load(fname,'s');
+       vout{ii}(okts) = s(in1(okts));
+     case 3
+       load(fname,'nutdens');
+       vout{ii}(okts) = nutdens(in1(okts));
+     case 4
+       load(fname,'o2');
+       vout{ii} = o2(in1);
+     case 5
+       load(fname,'si');
+       vout{ii} = si(in1);
+     case 6
+       load(fname,'po4');
+       vout{ii} = po4(in1);
+     case 7
+       load(fname,'no3');
+       vout{ii} = no3(in1);
+     otherwise
+d808 2
+a809 2
+   end
+end
+d811 9
+d821 4
+a824 10
+% If no3 required, access the separate pre-85 no3 obs data as well
+if any(vars==7)
+   fname = '/home/eez_data/csiro_obs/csiro_no3_obs';
+   load(fname,'lat','lon','cflag','deps','no3');
+
+   % Index to unflagged casts in the region of interest
+   if min(size(src))==1
+      in2 = find(lon>=src(1) & lon<=src(2) & lat>=src(3) & lat<=src(4) & ~cflag);
+   else
+      in2 = find(inpolygon(lon,lat,src(:,1),src(:,2)) & ~cflag);
+a825 1
+   lin2 = length(in2);
+d827 6
+a832 5
+   if lin2>0
+      lo = [lo; lon(in2)];
+      la = [la; lat(in2)];
+      hout = loadh(hout,hvar,fname,in2);      
+      zd = [zd deps(in2)];
+d834 19
+a852 5
+      for ii = 1:nvars	 
+	 if vars(ii)==7
+	    vout{ii} = [vout no3(in2)];
+	 else
+	    vout{ii}{lin1+lin2} = [];
+a853 3
+      end
+   end
+end
+d855 35
+a889 2
+% Reduce cells of data to arrays of data, only containing good casts (those
+% with at least some data in the required depth range.)
+d891 30
+a920 1
+[zd,vout,good] = reduc_cells(zd,vout,drng,1:nvars);   
+d922 1
+a922 9
+% Reduce header info to only good casts
+good = find(good);
+lo = lo(good);
+la = la(good);
+for ii = 1:nhvar
+   hout{ii} = hout{ii}(good);
+end
+
+return
+a923 2
+%----------------------------------------------------------------------
+function hout = loadh(hout,hvar,fname,in1)
+d925 4
+a928 24
+for ii = 1:length(hvar)
+   switch hvar(ii)
+     case 1
+       load(fname,'prid');
+       hout{ii} = [hout{ii}; prid(in1)];
+     case 2
+       load(fname,'time');
+       hout{ii} = [hout{ii}; time(in1)];
+     case 4
+       load(fname,'cflag');
+       hout{ii} = [hout{ii}; cflag(in1)];
+     case 5
+       hout{ii} = [hout{ii}; repmat(12345,size(in1))];
+     case 6
+       load(fname,'prid');
+       hout{ii} = [hout{ii}; floor(prid(in1)/1000)];
+     case 7
+       load(fname,'bdpth');
+       hout{ii} = [hout{ii}; bdpth(in1)];
+     case 9
+       hout{ii} = [hout{ii}; repmat(8,size(in1))];
+     otherwise
+       hout{ii} = [hout{ii}; repmat(nan,size(in1))];   
+   end
+a930 9
+return
+
+%---------------------------------------------------------------------------
+function [zd,vout,good] = reduc_cells(zd,vout,drng,gvars)
+
+% Find required depths in each cast, and flag casts which do have some data
+ncst = length(vout{gvars(1)});
+good = zeros([1 ncst]);
+mxdp = 0;
+a931 31
+for mm = 1:ncst
+   % ll indexes depths in required range, chks are corresponding flags set 1
+   % if any vars have good data at those depths.
+   dps = zd{mm};
+   ll = [];
+   if ~isempty(dps)
+      ll = find(dps>=drng(1) & dps<=drng(2));
+   end
+   if ~isempty(ll)
+      chks = zeros(size(ll));
+      for ii = gvars
+	 if ~isempty(vout{ii}{mm})
+	    chks = chks | ~isnan(vout{ii}{mm}(ll));
+	 end
+      end
+      % Can't use the syntax "ll(chks)" anymore, but the following does work:
+      ll = ll(~~chks);
+   end
+   if ~isempty(ll)      
+      % Some good data in depth range, so flag cast as good, and reduce each
+      % var to just those good-data depths
+      good(mm) = 1;
+      zd{mm} = dps(ll);
+      for ii = gvars
+	 if ~isempty(vout{ii}{mm})
+	    vout{ii}{mm} = vout{ii}{mm}(ll);
+	 end
+      end
+      if length(ll)>mxdp; mxdp = length(ll); end
+   end
+end
+d933 2
+d936 6
+a941 8
+% Reduce depth and var info from cells to arrays with only data-containing 
+% depths in only good casts
+good = find(good);
+ngood = length(good);
+tmp = repmat(nan,[ngood mxdp]);
+for jj = 1:ngood
+   zz = zd{good(jj)};
+   tmp(jj,1:length(zz)) = zz(:)';
+a942 1
+zd = tmp;
+d944 8
+a951 8
+% For each var with data, create the right sized array, and load in the data 
+for ii = gvars
+   tmp = repmat(nan,[ngood mxdp]);
+   for jj = 1:ngood
+      vv = vout{ii}{good(jj)};
+      if ~isempty(vv)
+	 tmp(jj,1:length(vv)) = vv(:)';
+      end
+a952 10
+   vout{ii} = tmp;
+end
+
+% If any vars for which we have no data, fill in nan arrays
+jj = 1:length(vout);
+jj(gvars) = [];
+
+tmp = repmat(nan,[ngood mxdp]);
+for ii = jj
+   vout{ii} = tmp;
+a954 2
+return
+
+a955 1
+
+@
+
+
+1.4
+log
+@Added "filetype" variable.
+@
+text
+@d14 1
+a14 1
+%  suf    vector of filetype suffix codes:
+d16 1
+a16 1
+%         8)CSIRO_HydObs  9)NIWA
+d28 2
+d32 1
+a32 1
+% $Id: get_all_obs.m,v 1.3 2002/03/13 09:38:47 dun216 Exp dun216 $
+d84 3
+d148 2
+a149 1
+lat = [];
+d173 1
+a173 1
+   ii = mm(find(isinpoly(lon(mm),lat(mm),src(:,1),src(:,2))));
+d177 2
+d180 1
+a180 4
+if nnew>0
+   lat = lat(ii);
+   lon = lon(ii);
+   
+d222 84
+d327 1
+a327 1
+   in1 = find(isinpoly(lon,lat,src(:,1),src(:,2)) & ~cflag);
+d398 1
+a398 1
+      in2 = find(isinpoly(lon,lat,src(:,1),src(:,2)) & ~cflag);
+d418 48
+d468 2
+a469 1
+good = zeros(size(lo));
+d472 1
+a472 1
+for mm = 1:length(lo)
+d482 1
+a482 1
+      for ii = 1:nvars
+d495 1
+a495 1
+      for ii = 1:nvars
+a503 8
+% Reduce header info to only good casts
+good = find(good);
+lo = lo(good);
+la = la(good);
+for ii = 1:nhvar
+   hout{ii} = hout{ii}(good);
+end
+
+d507 1
+d511 2
+a512 2
+   zz = zd{good(jj)}';
+   tmp(jj,1:length(zz)) = zz;
+d516 2
+a517 1
+for ii=1:nvars
+d520 1
+a520 1
+      vv = vout{ii}{good(jj)}';
+d522 1
+a522 1
+	 tmp(jj,1:length(vv)) = vv;
+d528 3
+a530 1
+return
+d532 3
+a534 27
+%----------------------------------------------------------------------
+function hout = loadh(hout,hvar,fname,in1)
+
+for ii = 1:length(hvar)
+   switch hvar(ii)
+     case 1
+       load(fname,'prid');
+       hout{ii} = [hout{ii}; prid(in1)];
+     case 2
+       load(fname,'time');
+       hout{ii} = [hout{ii}; time(in1)];
+     case 4
+       load(fname,'cflag');
+       hout{ii} = [hout{ii}; cflag(in1)];
+     case 5
+       hout{ii} = [hout{ii}; repmat(12345,size(in1))];
+     case 6
+       load(fname,'prid');
+       hout{ii} = [hout{ii}; floor(prid(in1)/1000)];
+     case 7
+       load(fname,'bdpth');
+       hout{ii} = [hout{ii}; bdpth(in1)];
+     case 9
+       hout{ii} = [hout{ii}; repmat(8,size(in1))];
+     otherwise
+       hout{ii} = [hout{ii}; repmat(nan,size(in1))];   
+   end
+d540 1
+@
+
+
+1.3
+log
+@Major rework, cleanup and allow all header info to be requested.
+@
+text
+@d6 1
+a6 1
+%         7)bot_depth   8)pos_stat
+d14 1
+a14 1
+%  suf    vector of suffix codes:
+d30 1
+a30 1
+% $Id: get_all_obs.m,v 1.2 2001/03/07 23:59:10 dun216 Exp dun216 $
+d71 1
+a71 1
+	 [lat,lon,hout,vout] = CSIROctdcsl(src,stdep,hvar,vars);
+d190 2
+d420 2
+@
+
+
+1.2
+log
+@Adapt to CSL
+@
+text
+@d4 3
+d17 1
+a17 1
+%  deps   upper and lower depth limits
+d20 2
+a21 1
+%  v1 etc      "
+d26 5
+a30 2
+% Author: Jeff Dunn  CSIRO Marine Research Dec 1999
+% $Id: get_all_obs.m,v 1.1 2000/02/17 05:10:05 dunn Exp dunn $
+d32 1
+a32 1
+% USAGE: [lat,lon,cpn,tim,zdep,v1,v2,..] = get_all_obs(vars,src,suf,deps)
+d34 1
+a34 1
+function [lat,lon,cpn,time,zdep,varargout] = get_all_obs(vars,src,suf,deps)
+d37 1
+d39 2
+a40 2
+lat = []; lon = []; cpn = []; time = []; zdep = [];    
+varargout{nvars} = [];
+d51 1
+a51 1
+   [lat,lon,zdep,vaout] = getwod98(src,[1 2],vars,wsuf,deps);
+a52 2
+      cpn = vaout{1};
+      time = vaout{2};
+d54 5
+a58 2
+      for ii=1:nvars
+	 varargout{ii} = vaout{2+ii}';
+d67 9
+a75 1
+      [la,lo,zd,cp,tim,vaout] = get_csl(vars,deps,src);
+d77 2
+a78 2
+      csldup = ~isempty(find(suf==7));
+      [la,lo,zd,cp,tim,vaout] = get_hyd(vars,deps,src,csldup);
+d81 3
+a83 1
+      [la,lo,zd,cp,tim,vaout] = get_niwa(vars,deps,src);
+d89 6
+a94 4
+      time = [time; tim];
+      cpn = [cpn; cp];
+   
+      [ncst,ndep] = size(vaout{1});
+d101 2
+a102 2
+	 for ii = 1:length(vaout)
+	    gotdat = gotdat | any(~isnan(vaout{ii}));
+d108 1
+a108 1
+	       vaout{ii} = vaout{ii}(:,gotdat);
+d115 1
+a115 1
+      [mcst,mdep] = size(varargout{1});
+d129 2
+a130 1
+	 varargout{iv} = [[varargout{iv} mpad]; [vaout{iv} npad]];
+d141 1
+a141 1
+function [latnz,lonnz,zd,pridnz,timenz,vaout] = get_niwa(vars,deps,src)
+d143 1
+a143 2
+zd = [];
+vaout{length(vars)} = [];
+d145 1
+a145 1
+if isempty(find(vars<=4))
+a152 1
+   latnz = [];
+d161 2
+a162 6
+% Remove indices to flagged casts
+mm = 1:length(lonnz);
+rr = find(cflag~=0);
+if ~isempty(rr)
+   mm(rr) = [];
+end
+d165 1
+a165 1
+   ii = mm(find(lonnz(mm)>=src(1) & lonnz(mm)<=src(2) & latnz(mm)>=src(3) & latnz(mm)<=src(4)));
+d167 1
+a167 1
+   ii = mm(find(isinpoly(lonnz(mm),latnz(mm),src(:,1),src(:,2))));
+a169 5
+latnz = latnz(ii);
+lonnz = lonnz(ii);
+timenz = timenz(ii);
+pridnz = pridnz(ii);
+
+d173 22
+d196 11
+a206 10
+      if vars(iv)==1
+	 vaout{iv} = tnz(ii,stdep);
+      elseif vars(iv)==2
+	 vaout{iv} = snz(ii,stdep);
+      elseif vars(iv)==3
+	 vaout{iv} = nutdens(ii,stdep);
+      elseif vars(iv)==4
+	 vaout{iv} = o2nz(ii,stdep);
+      else
+	 vaout{iv} = repmat(nan,[nnew ndeps]);
+d216 5
+d222 1
+a222 21
+function [lat,lon,zd,cpn,time,vaout] = get_csl(vars,deps,src)
+
+% Calc and restrict stdep as only 56 levels in CSL file.
+
+stdep = [ceil(dep_csl(deps(1))) floor(dep_csl(deps(2)))];
+if min(stdep)>56 | stdep(1)>stdep(2)
+   lat = [];
+   return
+end
+
+stdep = stdep(1):min([stdep(2) 56]);
+ndeps = length(stdep);
+
+[lat,lon,time,cpn,vaout]=CSIROctdcsl(src,stdep,vars);
+
+zd = repmat(csl_dep(stdep),[length(lon) 1]);
+
+return
+%--------------------------------------------------------------------------
+
+function [lat,lon,zd,prid,time,vaout] = get_hyd(vars,deps,src,csldup)
+a225 1
+pnam = {'t','s','nutdens','o2','si','po4','no3'};
+d227 2
+d230 1
+a230 8
+load(fname,'lat','lon','time','prid','cflag');
+
+% Remove indices to flagged casts
+mm = 1:length(lat);
+rr = find(cflag~=0);
+if ~isempty(rr)
+   mm(rr) = [];
+end
+d232 1
+d234 1
+a234 1
+   in1 = mm(find(lon(mm)>=src(1) & lon(mm)<=src(2) & lat(mm)>=src(3) & lat(mm)<=src(4)));
+d236 1
+a236 15
+   in1 = mm(find(isinpoly(lon(mm),lat(mm),src(:,1),src(:,2))));
+end
+lin1 = length(in1);
+
+lat = lat(in1); 
+lon = lon(in1); 
+time = time(in1); 
+prid = prid(in1);
+
+tmp = load(fname,'deps');
+zd = tmp.deps(in1);
+
+if isempty(in1)
+   vaout{1} = [];
+   return
+d239 1
+a239 1
+if csldup
+d244 5
+d250 6
+a255 1
+   okts = 1:lin1;
+d258 10
+d269 25
+a293 9
+   if vars(ii)<=3
+      tmp = myload(fname,pnam{vars(ii)});
+      vaout{ii}{lin1} = [];
+      vaout{ii}(okts) = tmp(in1(okts));
+   elseif vars(ii)<=7
+      tmp = myload(fname,pnam{vars(ii)});
+      vaout{ii} = tmp(in1);
+   else
+      vaout{ii}{lin1} = [];      
+d297 3
+a299 2
+if ~isempty(find(vars==7))
+   % Access pre-85 no3 obs data as well
+d301 3
+a303 10
+   hyd = load(fname,'lat','lon','time','prid','deps','no3','cflag');
+   lo = hyd.lon;
+   la = hyd.lat;
+
+   % Remove indices to flagged casts
+   mm = 1:length(la);
+   rr = find(hyd.cflag~=0);
+   if ~isempty(rr)
+      mm(rr) = [];
+   end
+d305 1
+a305 1
+      in2 = mm(find(lo(mm)>=src(1) & lo(mm)<=src(2) & la(mm)>=src(3) & la(mm)<=src(4)));
+d307 1
+a307 1
+      in2 = mm(find(isinpoly(lo(mm),la(mm),src(:,1),src(:,2))));
+d310 1
+a310 1
+
+d312 6
+a317 7
+      lon = [lon; lo(in2)];
+      lat = [lat; la(in2)];
+      time = [time; hyd.time(in2)];
+      prid = [prid; hyd.prid(in2)];
+   
+      zd = [zd hyd.deps(in2)];
+      for ii = 1:nvars
+d319 1
+a319 1
+	    vaout{ii} = [vaout hyd.no3(in2)];
+d321 1
+a321 1
+	    vaout{ii}{lin1+lin2} = [];
+a324 1
+   clear hyd
+d327 3
+a329 1
+good = zeros(size(lon));
+d332 3
+a334 1
+for mm = 1:length(lon)
+d338 1
+a338 1
+      ll = find(dps>=deps(1) & dps<=deps(2));
+d343 2
+a344 2
+	 if ~isempty(vaout{ii}{mm})
+	    chks = chks | ~isnan(vaout{ii}{mm}(ll));
+d351 2
+d356 2
+a357 2
+	 if ~isempty(vaout{ii}{mm})
+	    vaout{ii}{mm} = vaout{ii}{mm}(ll);
+d364 8
+d373 5
+a377 7
+good = find(good);
+lon = lon(good);
+lat = lat(good);
+time = time(good);
+prid = prid(good);
+tmp = repmat(nan,[length(good) mxdp]);
+for jj=1:length(good)
+d382 1
+d384 3
+a386 3
+   tmp = repmat(nan,[length(good) mxdp]);
+   for jj = 1:length(good)
+      vv = vaout{ii}{good(jj)}';
+d391 1
+a391 1
+   vaout{ii} = tmp;
+d397 24
+a420 6
+function varargout = myload(fnm,varargin)
+   
+for ii=1:(nargin-1)
+   tmp = load(fnm,varargin{ii});
+   cmd = ['varargout{ii} = tmp.' varargin{ii} ';'];
+   eval(cmd);
+d422 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d23 1
+a23 1
+% $Id: $
+d128 1
+a128 1
+% Calc and restrict stdep as only 33 levels in NIWA file.
+d130 2
+a131 2
+stdep = [ceil(dep_std(deps(1))) floor(dep_std(deps(2)))];
+if min(stdep)>33 | stdep(1)>stdep(2)
+d136 1
+a136 1
+stdep = stdep(1):min([stdep(2) 33]);
+d139 1
+a139 1
+load /home/eez_data/hydro/niwa_stdlvl
+d176 1
+a176 1
+   zd = repmat(std_dep(stdep),[nnew 1]);
+@

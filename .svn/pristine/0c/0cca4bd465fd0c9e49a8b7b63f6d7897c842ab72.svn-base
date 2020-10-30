@@ -1,0 +1,33 @@
+function reprocess(settings, infile, outfile)
+% reprocess applies the settings to all .nc files under and including
+% infile (which may be .nc file or a directory) and writes the output to a
+% matching directory structure under outfile.
+%
+% Inputs:
+%   settings    Structure containing settings for process_BASOOP
+%   infile      Name of file or directory to reprocess
+%   outfile     
+
+if exist(infile, 'dir') == 7
+    mkdir(outfile);
+    files = dir(infile);
+    for i = 1:length(files)
+        reprocess(fullfile(infile, files(i).name), fullfile(outfile, files(i).name))
+    end
+    
+else
+    if strcmpi(infile(end-2:end), '.nc')
+        settings.read_netcdf = 1;
+        settings.netcdf_file = infile;
+        settings.netcdf = 1;
+        settings.netcdf_directory = fileparts(outfile);
+        try
+            process_BASOOP(settings);
+        catch exception
+            printf('Problem reprocessing %s:\n %s\n', infile, exception.message)
+        end
+    else
+        printf('Skipping %s\n', infile
+    end
+end
+

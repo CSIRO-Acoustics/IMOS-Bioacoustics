@@ -1,0 +1,347 @@
+head	1.4;
+access;
+symbols;
+locks
+	dun216:1.4; strict;
+comment	@# @;
+
+
+1.4
+date	2000.10.02.00.24.10;	author dunn;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2000.10.02.00.04.31;	author dunn;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	98.01.15.05.53.24;	author dunn;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	98.01.15.05.52.57;	author dunn;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.4
+log
+@Allowed for plotting in descending order of values.
+@
+text
+@% COLOURPLOT  x-y plot of symbols, whose colour is determined by z.
+% INPUT:  xx    x coords
+%         yy    y coords
+%         zz    z coordinate which determines colour
+% Optional:       (can use empty [] if require some but not others) 
+%         symb   string defining a normal "plot" symbol
+%         cpmin  Min value for colour map
+%         cprng  Range of colour map (so caxis will be [cpmin cpmin+cprng])
+% *NEW* -->      Use the -ve of required range to plot data in descending order. 
+%         msz    Marker size for symbols
+%         blur   If 1, add small random error to locations to see coincident
+%                points [if >1 then error range = max(range)/blur]
+%
+% Note: Line marker symbols are catered for, but may consume much more time
+%       and memory.
+%
+% WARNINGS: Apply required colour map FIRST (cannot change it after plotting)
+%           Data is plotted in order of zz, NOT as ordered in input arrays.
+%
+% Jeff Dunn  8/11/96  15/1/98  19/6/98  31/7/00  2/10/00
+%
+% USAGE: colourplot(xx,yy,zz,symb,cpmin,cprng,msz,blur)
+
+function colourplot(xx,yy,zz,symb,cpmin,cprng,msz,blur)
+
+if nargin==0
+  disp('colourplot(xx,yy,zz,{symb,cpmin,cprng,msz})');
+  return
+end
+
+hold on
+
+rej = find(isnan(zz));
+if ~isempty(rej)
+  xx(rej) = [];
+  yy(rej) = [];
+  zz(rej) = [];
+end
+
+if min(size(xx)) > 1
+  xx = xx(:);
+  yy = yy(:);
+  zz = zz(:);
+end
+
+if nargin < 4 | isempty(symb)
+  symb = '+';
+end
+if nargin < 5 | isempty(cpmin)
+  cpmin = min(zz);
+end
+if nargin < 6 | isempty(cprng)
+  cprng = max(zz) - cpmin;
+end
+if nargin < 7
+  msz = [];
+end
+
+cm = colormap;
+lcm = size(cm,1);
+
+if nargin < 8 | isempty(blur)  
+   blur = 0;
+end
+if blur
+   if blur==1; blur=30; end
+   rng = max([(max(xx)-min(xx)) (max(yy)-min(yy))])/blur;
+   xx = xx+rng*(rand(size(xx))-.5);
+   yy = yy+rng*(rand(size(yy))-.5);
+end
+
+
+if strcmp(symb(1),'-') | strcmp(symb,':')
+  
+  % Plot data in original order, esp. for drawing continuous lines
+
+  cprng = abs(cprng);
+  
+  limit = find(zz<cpmin);
+  if ~isempty(limit)
+    zz(limit) = cpmin*ones(size(limit));
+    disp([num2str(length(limit)) ' data increased to CPMIN'])
+  end
+
+  limit = find(zz>(cpmin+cprng));
+  if ~isempty(limit)
+    zz(limit) = (cpmin+cprng)*ones(size(limit));
+    disp([num2str(length(limit)) ' data decreased to CPMIN+CPRNG'])
+  end
+
+  cc = cm(1+ floor((lcm-1)*(zz-cpmin)./cprng),:);
+
+  for ii=2:length(xx)
+    plot(xx([ii-1 ii]),yy([ii-1 ii]),symb,'Color',cc(ii,:));
+  end
+
+else
+  
+  % Plot in groups of like value, to reduce time and memory consumption.
+  
+  % Crappy way (but only way?) to get default markersize
+  if isempty(msz)
+     hh = plot(xx(1),yy(1),'o');
+     msz = get(hh,'MarkerSize');
+     delete(hh);
+  end
+  
+  idx = 1:length(zz);
+
+  if cprng>0
+     % Plot colours in ascending order
+     for ii=1:lcm-1
+	kk = find(lcm*(zz(idx)-cpmin)./cprng < ii);
+	plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:),'MarkerSize',msz);
+	idx(kk) = [];
+     end
+     plot(xx(idx),yy(idx),symb,'Color',cm(lcm,:),'MarkerSize',msz);
+  else
+     % Plot colours in descending order (lowest values last)
+     cprng = -cprng;
+     for ii=lcm:-1:2
+	kk = find(lcm*(zz(idx)-cpmin)./cprng > ii);
+	plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:),'MarkerSize',msz);
+	idx(kk) = [];
+     end
+     plot(xx(idx),yy(idx),symb,'Color',cm(1,:),'MarkerSize',msz);
+  end
+end
+
+% And now, a terrible slight-of-hand to get colorbar to work properly -
+% the last child of the axis must be a patch...
+    
+caxis([cpmin cpmin+cprng])
+aa = axis;
+h = patch(aa(1),aa(3),[1 1 1]);
+set(h,'EdgeColor','none');
+
+% --------------- End of colourplot.m ----------------------
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d9 1
+d17 2
+a18 1
+% Must have previously applied the required colour map.
+d20 1
+a20 1
+% Jeff Dunn  8/11/96  15/1/98  19/6/98  31/7/00
+d72 1
+d77 2
+d101 7
+d110 8
+a117 9
+  if ~isempty(msz)
+  
+    for ii=1:lcm-1
+      kk = find(lcm*(zz(idx)-cpmin)./cprng < ii);
+      plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:),'MarkerSize',msz);
+      idx(kk) = [];
+    end
+    plot(xx(idx),yy(idx),symb,'Color',cm(lcm,:),'MarkerSize',msz);
+
+d119 8
+a126 8
+
+    for ii=1:lcm-1
+      kk = find(lcm*(zz(idx)-cpmin)./cprng < ii);
+      plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:));
+      idx(kk) = [];
+    end
+    plot(xx(idx),yy(idx),symb,'Color',cm(lcm,:));
+
+@
+
+
+1.2
+log
+@Much improved version - faster, less memory use, variable marker size, and
+has a trick so that colorbar works properly!
+@
+text
+@a0 2
+function [] = cp(xx,yy,zz,symb,cpmin,cprng,ms)
+
+d5 1
+a5 1
+% Optional:
+d9 6
+a14 1
+%         MarkerSize  Marker size for symbols
+d18 1
+a18 1
+% Jeff Dunn  8/11/96  15/1/98
+d20 3
+a22 1
+% USAGE:  colourplot(xx,yy,zz,symb,cpmin,cprng,MarkerSize)
+d25 1
+a25 1
+  disp('colourplot(xx,yy,zz,{symb,cpmin,cprng,markersize})');
+d44 1
+a44 1
+if nargin < 4
+d47 1
+a47 1
+if nargin < 5
+d50 1
+a50 1
+if nargin < 6
+d53 3
+d57 2
+d60 13
+a72 12
+% Extreme values now handled correctly without explicitly catching them.
+%limit = find(zz<cpmin);
+%if ~isempty(limit)
+%  zz(limit) = cpmin*ones(size(limit));
+%  disp([num2str(length(limit)) ' data increased to CPMIN'])
+%end
+%
+%limit = find(zz>(cpmin+cprng));
+%if ~isempty(limit)
+%  zz(limit) = (cpmin+cprng)*ones(size(limit));
+%  disp([num2str(length(limit)) ' data decreased to CPMIN+CPRNG'])
+%end
+d74 5
+d80 5
+a84 2
+cm = colormap;
+lcm = size(cm,1);
+d86 1
+a86 1
+idx = 1:length(zz);
+d88 2
+a89 6
+if nargin==7
+  
+  for ii=1:lcm-1
+    kk = find(lcm*(zz(idx)-cpmin)./cprng < ii);
+    plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:),'MarkerSize',ms);
+    idx(kk) = [];
+a90 1
+  plot(xx(idx),yy(idx),symb,'Color',cm(lcm,:),'MarkerSize',ms);
+d93 22
+a115 4
+  for ii=1:lcm-1
+    kk = find(lcm*(zz(idx)-cpmin)./cprng < ii);
+    plot(xx(idx(kk)),yy(idx(kk)),symb,'Color',cm(ii,:));
+    idx(kk) = [];
+a116 2
+  plot(xx(idx),yy(idx),symb,'Color',cm(lcm,:));
+
+a118 1
+
+d124 2
+a125 1
+patch(aa(1),aa(3),[1 1 1]);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+function [] = colourplot(xx,yy,zz,symb,cpmin,cprng)
+d4 3
+a6 3
+% INPUT:  xx    MxN  x coord
+%         yy    MxN  y coord
+%         zz    MxN  coordinate which determines colour
+d11 1
+d15 1
+a15 1
+% Jeff Dunn  8/11/96
+d17 1
+a17 1
+% USAGE:  colourplot(xx,yy,zz,symb,cpmin,cprng)
+d20 1
+a20 1
+  disp('colourplot(xx,yy,zz,{symb,cpmin,cprng})');
+d33 6
+a48 5
+limit = find(zz<cpmin);
+if ~isempty(limit)
+  zz(limit) = cpmin*ones(size(limit));
+  disp([num2str(length(limit)) ' data increased to CPMIN'])
+end
+d50 13
+a62 5
+limit = find(zz>(cpmin+cprng));
+if ~isempty(limit)
+  zz(limit) = (cpmin+cprng)*ones(size(limit));
+  disp([num2str(length(limit)) ' data decreased to CPMIN+CPRNG'])
+end
+d67 19
+a85 1
+cc = cm(1+ floor((lcm-1)*(zz-cpmin)./cprng),:);
+a86 2
+for ii=1:length(xx)
+  plot(xx(ii),yy(ii),symb,'Color',cc(ii,:));
+d88 10
+@
